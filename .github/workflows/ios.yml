@@ -28,6 +28,7 @@ jobs:
         run: |
           xcodegen generate
           pod install --repo-update
+          xcodebuild -list -workspace VeloxApps.xcworkspace | tee ../build-ios.log
 
       - name: Compilar
         working-directory: ios

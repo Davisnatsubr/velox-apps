@@ -20,7 +20,6 @@ targets:
     type: application
     platform: iOS
     sources: [Shared, Velox]
-    scheme: {}
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.veloxplay.velox
@@ -49,7 +48,6 @@ targets:
     type: application
     platform: iOS
     sources: [Shared, Pulso]
-    scheme: {}
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.veloxplay.pulso
@@ -74,3 +72,20 @@ targets:
           NSAllowsArbitraryLoadsForMedia: true
         NSLocalNetworkUsageDescription: Usado para tocar vídeos de servidores na sua rede.
         ITSAppUsesNonExemptEncryption: false
+schemes:
+  Velox:
+    build:
+      targets:
+        Velox: all
+    run:
+      config: Release
+    archive:
+      config: Release
+  Pulso:
+    build:
+      targets:
+        Pulso: all
+    run:
+      config: Release
+    archive:
+      config: Release
