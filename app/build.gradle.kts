@@ -57,7 +57,8 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = if (hasKs) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
+            // sem a chave, sai sem assinatura (para assinar depois com apksigner/jarsigner)
+            signingConfig = if (hasKs) signingConfigs.getByName("release") else null
         }
     }
 

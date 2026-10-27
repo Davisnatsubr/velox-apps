@@ -6,6 +6,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,15 +26,15 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Chave de assinatura
+      - name: Chave de assinatura (opcional)
         env:
           KS: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
           if [ -n "$KS" ]; then
             echo "$KS" | base64 -d > "$GITHUB_WORKSPACE/release.jks"
-            echo "Assinando com a sua chave de upload."
+            echo "Assinando com a chave de upload."
           else
-            echo "::warning::Secret KEYSTORE_BASE64 não configurado: os arquivos saem com a chave de teste e NÃO servem para a Play Store."
+            echo "Sem a chave: os arquivos saem sem assinatura e são assinados depois."
           fi
 
       - name: Compilar Velox e Pulso (APK + AAB)
@@ -41,7 +44,9 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: gradle --no-daemon --stacktrace assembleRelease bundleRelease
+        run: |
+          set -o pipefail
+          gradle --no-daemon --stacktrace assembleRelease bundleRelease 2>&1 | tee build.log
 
       - name: Separar os arquivos
         run: |
@@ -51,9 +56,24 @@ jobs:
           cp app/build/outputs/apk/pulso/release/*.apk "saida/PulsoPlay-1.0.$N.apk"
           cp app/build/outputs/bundle/veloxRelease/*.aab "saida/VeloxPlay-1.0.$N.aab"
           cp app/build/outputs/bundle/pulsoRelease/*.aab "saida/PulsoPlay-1.0.$N.aab"
+          BT=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
+          cp "$ANDROID_HOME/build-tools/$BT/lib/apksigner.jar" saida/ || true
+          tail -n 40 build.log > saida/build.log
           ls -la saida
 
       - uses: actions/upload-artifact@v4
         with:
           name: apps-android-1.0.${{ github.run_number }}
           path: saida/
+
+      # guarda o resultado (ou o erro) na branch "builds", para baixar com git
+      - name: Publicar na branch builds
+        if: always()
+        run: |
+          mkdir -p saida && cp build.log saida/build.log 2>/dev/null || true
+          echo "${{ job.status }} run=${{ github.run_number }} commit=${{ github.sha }}" > saida/STATUS.txt
+          cd saida
+          git init -q && git checkout -q -b builds
+          git add -A
+          git -c user.name=ci -c user.email=ci@localhost commit -qm "build ${{ github.run_number }}"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" builds
