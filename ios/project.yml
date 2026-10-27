@@ -1,0 +1,76 @@
+name: VeloxApps
+options:
+  bundleIdPrefix: com.veloxplay
+  deploymentTarget:
+    iOS: "14.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    ENABLE_BITCODE: NO
+    CODE_SIGNING_ALLOWED: NO
+    CODE_SIGNING_REQUIRED: NO
+    CODE_SIGN_IDENTITY: ""
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+targets:
+  Velox:
+    type: application
+    platform: iOS
+    sources: [Shared, Velox]
+    scheme: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.veloxplay.velox
+        PRODUCT_NAME: VeloxPlay
+    info:
+      path: Velox/Info.plist
+      properties:
+        CFBundleDisplayName: Velox Play
+        SiteURL: http://betaspark.saiyajinpixel.online/webplayer/
+        BrandColor: "#0d0f14"
+        UILaunchScreen:
+          UIColorName: LaunchBG
+        UIRequiresFullScreen: true
+        UIStatusBarHidden: true
+        UIViewControllerBasedStatusBarAppearance: true
+        UIBackgroundModes: [audio]
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+          NSAllowsArbitraryLoadsInWebContent: true
+          NSAllowsArbitraryLoadsForMedia: true
+        NSLocalNetworkUsageDescription: Usado para tocar vídeos de servidores na sua rede.
+        ITSAppUsesNonExemptEncryption: false
+  Pulso:
+    type: application
+    platform: iOS
+    sources: [Shared, Pulso]
+    scheme: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.veloxplay.pulso
+        PRODUCT_NAME: PulsoPlay
+    info:
+      path: Pulso/Info.plist
+      properties:
+        CFBundleDisplayName: Pulso Play
+        SiteURL: http://pulso.saiyajinpixel.online/velox-pulso/
+        BrandColor: "#0e1424"
+        UILaunchScreen:
+          UIColorName: LaunchBG
+        UIRequiresFullScreen: true
+        UIStatusBarHidden: true
+        UIViewControllerBasedStatusBarAppearance: true
+        UIBackgroundModes: [audio]
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+          NSAllowsArbitraryLoadsInWebContent: true
+          NSAllowsArbitraryLoadsForMedia: true
+        NSLocalNetworkUsageDescription: Usado para tocar vídeos de servidores na sua rede.
+        ITSAppUsesNonExemptEncryption: false

@@ -1,0 +1,66 @@
+name: Gerar apps iOS
+
+# Compila Velox Play e Pulso Play para iPhone/iPad (com VLC) num Mac do GitHub.
+# Sai um .ipa SEM assinatura de cada app, para assinar com a sua ferramenta (ou com a conta Apple depois).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['ios/**', '.github/workflows/ios.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ferramentas
+        run: |
+          brew install xcodegen
+          sudo xcode-select -s /Applications/Xcode_15.4.app || true
+          xcodebuild -version
+
+      - name: Gerar projeto e baixar o VLC
+        working-directory: ios
+        run: |
+          xcodegen generate
+          pod install --repo-update
+
+      - name: Compilar
+        working-directory: ios
+        run: |
+          set -o pipefail
+          mkdir -p ../saida
+          for S in Velox Pulso; do
+            xcodebuild -workspace VeloxApps.xcworkspace -scheme $S -configuration Release \
+              -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
+              CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+              CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build 2>&1 | tee -a ../build-ios.log | grep -E "error:|warning: .*(Swift|swift)|BUILD" || true
+            APP=$(ls -d build/Build/Products/Release-iphoneos/*${S}*.app | head -1)
+            test -d "$APP"
+            rm -rf Payload && mkdir Payload && cp -R "$APP" Payload/
+            zip -qry "../saida/${S}Play-ios-1.0.${{ github.run_number }}-sem-assinatura.ipa" Payload
+          done
+          ls -la ../saida
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: apps-ios-1.0.${{ github.run_number }}
+          path: saida/
+
+      - name: Publicar na branch builds-ios
+        if: always()
+        run: |
+          mkdir -p saida
+          grep -E "error:|BUILD (SUCCEEDED|FAILED)|\*\* " build-ios.log > saida/erros.log 2>/dev/null || true
+          tail -n 80 build-ios.log > saida/build.log 2>/dev/null || true
+          echo "${{ job.status }} run=${{ github.run_number }} commit=${{ github.sha }}" > saida/STATUS.txt
+          cd saida
+          git init -q && git checkout -q -b builds-ios
+          git add -A
+          git -c user.name=ci -c user.email=ci@localhost commit -qm "ios build ${{ github.run_number }}"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" builds-ios

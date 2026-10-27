@@ -7,3 +7,9 @@ app/build/
 local.properties
 .idea/
 *.iml
+ios/build/
+ios/Pods/
+ios/*.xcodeproj/
+ios/*.xcworkspace/
+ios/Podfile.lock
+ios/*/Info.plist
