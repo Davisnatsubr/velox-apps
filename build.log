@@ -1,0 +1,196 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preVeloxDiretoReleaseBuild UP-TO-DATE
+> Task :app:mergeVeloxDiretoReleaseJniLibFolders
+> Task :app:mergeVeloxDiretoReleaseNativeLibs NO-SOURCE
+> Task :app:stripVeloxDiretoReleaseDebugSymbols NO-SOURCE
+> Task :app:extractVeloxDiretoReleaseNativeSymbolTables NO-SOURCE
+> Task :app:mergeVeloxDiretoReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:buildKotlinToolingMetadata
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:generateVeloxDiretoReleaseBuildConfig
+> Task :app:checkVeloxDiretoReleaseDuplicateClasses
+> Task :app:checkVeloxDiretoReleaseAarMetadata
+> Task :app:generateVeloxDiretoReleaseResValues
+> Task :app:mapVeloxDiretoReleaseSourceSetPaths
+> Task :app:generateVeloxDiretoReleaseResources
+> Task :app:packageVeloxDiretoReleaseResources
+> Task :app:createVeloxDiretoReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksVeloxDiretoRelease
+> Task :app:parseVeloxDiretoReleaseLocalResources
+> Task :app:mergeVeloxDiretoReleaseResources
+> Task :app:processVeloxDiretoReleaseMainManifest
+> Task :app:processVeloxDiretoReleaseManifest
+> Task :app:javaPreCompileVeloxDiretoRelease
+> Task :app:mergeVeloxDiretoReleaseArtProfile
+> Task :app:extractProguardFiles
+> Task :app:mergeVeloxDiretoReleaseStartupProfile
+> Task :app:mergeVeloxDiretoReleaseShaders
+> Task :app:compileVeloxDiretoReleaseShaders NO-SOURCE
+> Task :app:generateVeloxDiretoReleaseAssets UP-TO-DATE
+> Task :app:mergeVeloxDiretoReleaseAssets
+> Task :app:compressVeloxDiretoReleaseAssets
+> Task :app:extractVeloxDiretoReleaseVersionControlInfo
+> Task :app:collectVeloxDiretoReleaseDependencies
+> Task :app:sdkVeloxDiretoReleaseDependencyData
+> Task :app:writeVeloxDiretoReleaseAppMetadata
+> Task :app:writeVeloxDiretoReleaseSigningConfigVersions
+> Task :app:prePulsoDiretoReleaseBuild UP-TO-DATE
+> Task :app:mergePulsoDiretoReleaseJniLibFolders
+> Task :app:mergePulsoDiretoReleaseNativeLibs NO-SOURCE
+> Task :app:stripPulsoDiretoReleaseDebugSymbols NO-SOURCE
+> Task :app:extractPulsoDiretoReleaseNativeSymbolTables NO-SOURCE
+> Task :app:mergePulsoDiretoReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:generatePulsoDiretoReleaseBuildConfig
+> Task :app:checkPulsoDiretoReleaseDuplicateClasses
+> Task :app:processVeloxDiretoReleaseManifestForPackage
+> Task :app:checkPulsoDiretoReleaseAarMetadata
+> Task :app:generatePulsoDiretoReleaseResValues
+> Task :app:mapPulsoDiretoReleaseSourceSetPaths
+> Task :app:generatePulsoDiretoReleaseResources
+> Task :app:processVeloxDiretoReleaseResources
+> Task :app:packagePulsoDiretoReleaseResources
+> Task :app:createPulsoDiretoReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksPulsoDiretoRelease
+> Task :app:parsePulsoDiretoReleaseLocalResources
+> Task :app:processPulsoDiretoReleaseMainManifest
+> Task :app:processPulsoDiretoReleaseManifest
+> Task :app:javaPreCompilePulsoDiretoRelease
+> Task :app:processPulsoDiretoReleaseManifestForPackage
+> Task :app:mergePulsoDiretoReleaseArtProfile
+> Task :app:mergePulsoDiretoReleaseStartupProfile
+> Task :app:mergePulsoDiretoReleaseResources
+> Task :app:mergePulsoDiretoReleaseShaders
+> Task :app:compilePulsoDiretoReleaseShaders NO-SOURCE
+> Task :app:generatePulsoDiretoReleaseAssets UP-TO-DATE
+> Task :app:mergePulsoDiretoReleaseAssets
+> Task :app:compressPulsoDiretoReleaseAssets
+> Task :app:extractPulsoDiretoReleaseVersionControlInfo
+> Task :app:collectPulsoDiretoReleaseDependencies
+> Task :app:sdkPulsoDiretoReleaseDependencyData
+> Task :app:writePulsoDiretoReleaseAppMetadata
+> Task :app:writePulsoDiretoReleaseSigningConfigVersions
+> Task :app:preVeloxPlayReleaseBuild UP-TO-DATE
+> Task :app:extractVeloxPlayReleaseVersionControlInfo
+> Task :app:mergeVeloxPlayReleaseShaders
+> Task :app:compileVeloxPlayReleaseShaders NO-SOURCE
+> Task :app:generateVeloxPlayReleaseAssets UP-TO-DATE
+> Task :app:mergeVeloxPlayReleaseAssets
+> Task :app:generateVeloxPlayReleaseBuildConfig
+> Task :app:checkVeloxPlayReleaseDuplicateClasses
+> Task :app:checkVeloxPlayReleaseAarMetadata
+> Task :app:generateVeloxPlayReleaseResValues
+> Task :app:mapVeloxPlayReleaseSourceSetPaths
+> Task :app:generateVeloxPlayReleaseResources
+> Task :app:processPulsoDiretoReleaseResources
+> Task :app:packageVeloxPlayReleaseResources
+> Task :app:parseVeloxPlayReleaseLocalResources
+> Task :app:createVeloxPlayReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksVeloxPlayRelease
+> Task :app:processVeloxPlayReleaseMainManifest
+> Task :app:processVeloxPlayReleaseManifest
+> Task :app:processVeloxPlayReleaseManifestForPackage
+> Task :app:javaPreCompileVeloxPlayRelease
+> Task :app:mergeVeloxPlayReleaseArtProfile
+> Task :app:mergeVeloxPlayReleaseStartupProfile
+> Task :app:mergeVeloxPlayReleaseJniLibFolders
+> Task :app:mergeVeloxPlayReleaseNativeLibs NO-SOURCE
+> Task :app:stripVeloxPlayReleaseDebugSymbols NO-SOURCE
+> Task :app:writeVeloxPlayReleaseAppMetadata
+> Task :app:collectVeloxPlayReleaseDependencies
+> Task :app:configureVeloxPlayReleaseDependencies
+> Task :app:extractVeloxPlayReleaseNativeSymbolTables NO-SOURCE
+> Task :app:parseVeloxPlayReleaseIntegrityConfig
+> Task :app:prePulsoPlayReleaseBuild UP-TO-DATE
+> Task :app:extractPulsoPlayReleaseVersionControlInfo
+> Task :app:mergeVeloxPlayReleaseResources
+> Task :app:mergePulsoPlayReleaseShaders
+> Task :app:compilePulsoPlayReleaseShaders NO-SOURCE
+> Task :app:generatePulsoPlayReleaseAssets UP-TO-DATE
+> Task :app:mergePulsoPlayReleaseAssets
+> Task :app:checkPulsoPlayReleaseDuplicateClasses
+> Task :app:generatePulsoPlayReleaseBuildConfig
+> Task :app:checkPulsoPlayReleaseAarMetadata
+> Task :app:generatePulsoPlayReleaseResValues
+> Task :app:mapPulsoPlayReleaseSourceSetPaths
+> Task :app:generatePulsoPlayReleaseResources
+> Task :app:processVeloxPlayReleaseResources
+> Task :app:mergePulsoPlayReleaseResources
+> Task :app:packagePulsoPlayReleaseResources
+> Task :app:parsePulsoPlayReleaseLocalResources
+> Task :app:createPulsoPlayReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksPulsoPlayRelease
+> Task :app:processPulsoPlayReleaseMainManifest
+> Task :app:processPulsoPlayReleaseManifest
+> Task :app:processPulsoPlayReleaseManifestForPackage
+> Task :app:processPulsoPlayReleaseResources
+> Task :app:compilePulsoDiretoReleaseKotlin
+> Task :app:compileVeloxDiretoReleaseKotlin
+> Task :app:compilePulsoPlayReleaseKotlin
+> Task :app:compileVeloxPlayReleaseKotlin
+> Task :app:compilePulsoDiretoReleaseJavaWithJavac
+> Task :app:compileVeloxDiretoReleaseJavaWithJavac
+> Task :app:mergeVeloxDiretoReleaseGeneratedProguardFiles
+> Task :app:processVeloxDiretoReleaseJavaRes
+> Task :app:mergePulsoDiretoReleaseGeneratedProguardFiles
+> Task :app:processPulsoDiretoReleaseJavaRes
+> Task :app:expandPulsoDiretoReleaseArtProfileWildcards
+> Task :app:expandVeloxDiretoReleaseArtProfileWildcards
+> Task :app:compileVeloxPlayReleaseJavaWithJavac
+> Task :app:mergeVeloxPlayReleaseGeneratedProguardFiles
+> Task :app:processVeloxPlayReleaseJavaRes
+> Task :app:expandVeloxPlayReleaseArtProfileWildcards
+> Task :app:javaPreCompilePulsoPlayRelease
+> Task :app:mergeVeloxDiretoReleaseJavaResource
+> Task :app:mergePulsoDiretoReleaseJavaResource
+> Task :app:mergeVeloxPlayReleaseJavaResource
+> Task :app:compilePulsoPlayReleaseJavaWithJavac
+> Task :app:mergePulsoPlayReleaseArtProfile
+> Task :app:mergePulsoPlayReleaseGeneratedProguardFiles
+> Task :app:processPulsoPlayReleaseJavaRes
+> Task :app:mergePulsoPlayReleaseStartupProfile
+> Task :app:mergePulsoPlayReleaseJniLibFolders
+> Task :app:mergePulsoPlayReleaseNativeLibs NO-SOURCE
+> Task :app:stripPulsoPlayReleaseDebugSymbols NO-SOURCE
+> Task :app:writePulsoPlayReleaseAppMetadata
+> Task :app:collectPulsoPlayReleaseDependencies
+> Task :app:configurePulsoPlayReleaseDependencies
+> Task :app:extractPulsoPlayReleaseNativeSymbolTables NO-SOURCE
+> Task :app:parsePulsoPlayReleaseIntegrityConfig
+> Task :app:expandPulsoPlayReleaseArtProfileWildcards
+> Task :app:mergePulsoPlayReleaseJavaResource
+> Task :app:minifyVeloxDiretoReleaseWithR8
+> Task :app:convertShrunkResourcesToBinaryVeloxDiretoRelease
+> Task :app:optimizeVeloxDiretoReleaseResources
+> Task :app:compileVeloxDiretoReleaseArtProfile
+> Task :app:packageVeloxDiretoRelease
+> Task :app:createVeloxDiretoReleaseApkListingFileRedirect
+> Task :app:assembleVeloxDiretoRelease
+> Task :app:minifyPulsoDiretoReleaseWithR8
+> Task :app:compilePulsoDiretoReleaseArtProfile
+> Task :app:convertShrunkResourcesToBinaryPulsoDiretoRelease
+> Task :app:optimizePulsoDiretoReleaseResources
+> Task :app:packagePulsoDiretoRelease
+> Task :app:createPulsoDiretoReleaseApkListingFileRedirect
+> Task :app:assemblePulsoDiretoRelease
+> Task :app:minifyVeloxPlayReleaseWithR8
+> Task :app:buildVeloxPlayReleasePreBundle
+> Task :app:compileVeloxPlayReleaseArtProfile
+> Task :app:packageVeloxPlayReleaseBundle
+> Task :app:signVeloxPlayReleaseBundle
+> Task :app:produceVeloxPlayReleaseBundleIdeListingFile
+> Task :app:createVeloxPlayReleaseBundleListingFileRedirect
+> Task :app:bundleVeloxPlayRelease
+> Task :app:minifyPulsoPlayReleaseWithR8
+> Task :app:buildPulsoPlayReleasePreBundle
+> Task :app:compilePulsoPlayReleaseArtProfile
+> Task :app:packagePulsoPlayReleaseBundle
+> Task :app:signPulsoPlayReleaseBundle
+> Task :app:producePulsoPlayReleaseBundleIdeListingFile
+> Task :app:createPulsoPlayReleaseBundleListingFileRedirect
+> Task :app:bundlePulsoPlayRelease
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_3-1793142152852.json
+
+BUILD SUCCESSFUL in 1m 34s
+158 actionable tasks: 158 executed
