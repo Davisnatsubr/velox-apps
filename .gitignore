@@ -1,0 +1,9 @@
+release.jks
+*.jks
+chave-*.txt
+.gradle/
+build/
+app/build/
+local.properties
+.idea/
+*.iml
