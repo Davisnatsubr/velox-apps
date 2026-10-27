@@ -13,14 +13,14 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
       - name: Ferramentas
         run: |
           brew install xcodegen
-          sudo xcode-select -s /Applications/Xcode_15.4.app || true
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)" || true
           xcodebuild -version
 
       - name: Gerar projeto e baixar o VLC
