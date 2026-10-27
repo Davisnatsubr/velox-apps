@@ -22,7 +22,7 @@ android {
 
     // ====== OS DOIS APPS ======
     // Cada "sabor" vira um app separado na Play Store, com nome, ícone, ID e site próprios.
-    flavorDimensions += "marca"
+    flavorDimensions += listOf("marca", "canal")
     productFlavors {
         create("velox") {
             dimension = "marca"
@@ -35,6 +35,15 @@ android {
             applicationId = "com.veloxplay.pulso"
             resValue("string", "app_name", "Pulso Play")
             buildConfigField("String", "SITE_URL", "\"http://pulso.saiyajinpixel.online/velox-pulso/\"")
+        }
+        // "play" = Play Store (a loja atualiza). "direto" = APK do Downloader, que se atualiza sozinho pelo painel.
+        create("play") {
+            dimension = "canal"
+            buildConfigField("boolean", "SELF_UPDATE", "false")
+        }
+        create("direto") {
+            dimension = "canal"
+            buildConfigField("boolean", "SELF_UPDATE", "true")
         }
     }
 

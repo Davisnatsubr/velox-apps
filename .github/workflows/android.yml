@@ -41,7 +41,7 @@ jobs:
             echo "Sem a chave: os arquivos saem sem assinatura e são assinados depois."
           fi
 
-      - name: Compilar Velox e Pulso (APK + AAB)
+      - name: Compilar Velox e Pulso (APK direto + AAB Play Store)
         env:
           VERSION_CODE: ${{ github.run_number }}
           KEYSTORE_FILE: ${{ github.workspace }}/release.jks
@@ -50,16 +50,16 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -o pipefail
-          gradle --no-daemon --stacktrace assembleRelease bundleRelease 2>&1 | tee build.log
+          gradle --no-daemon --stacktrace assembleVeloxDiretoRelease assemblePulsoDiretoRelease bundleVeloxPlayRelease bundlePulsoPlayRelease 2>&1 | tee build.log
 
       - name: Separar os arquivos
         run: |
           N=${{ github.run_number }}
           mkdir -p saida
-          cp app/build/outputs/apk/velox/release/*.apk "saida/VeloxPlay-1.0.$N.apk"
-          cp app/build/outputs/apk/pulso/release/*.apk "saida/PulsoPlay-1.0.$N.apk"
-          cp app/build/outputs/bundle/veloxRelease/*.aab "saida/VeloxPlay-1.0.$N.aab"
-          cp app/build/outputs/bundle/pulsoRelease/*.aab "saida/PulsoPlay-1.0.$N.aab"
+          cp app/build/outputs/apk/veloxDireto/release/*.apk "saida/VeloxPlay-1.0.$N.apk"
+          cp app/build/outputs/apk/pulsoDireto/release/*.apk "saida/PulsoPlay-1.0.$N.apk"
+          cp app/build/outputs/bundle/veloxPlayRelease/*.aab "saida/VeloxPlay-1.0.$N.aab"
+          cp app/build/outputs/bundle/pulsoPlayRelease/*.aab "saida/PulsoPlay-1.0.$N.aab"
           BT=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
           cp "$ANDROID_HOME/build-tools/$BT/lib/apksigner.jar" saida/ || true
           tail -n 40 build.log > saida/build.log

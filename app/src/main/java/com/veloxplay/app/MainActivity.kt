@@ -5,6 +5,7 @@ import android.app.UiModeManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
@@ -47,6 +48,7 @@ class MainActivity : ComponentActivity() {
     private var customCallback: WebChromeClient.CustomViewCallback? = null
     private lateinit var chrome: WebChromeClient
     private var lastBack = 0L
+    private val updater by lazy { Updater(this) { js -> runOnUiThread { web.evaluateJavascript(js, null) } } }
     private val siteHost: String by lazy { Uri.parse(BuildConfig.SITE_URL).host ?: "" }
 
     private val isTv: Boolean by lazy {
@@ -89,6 +91,7 @@ class MainActivity : ComponentActivity() {
             useWideViewPort = true
             loadWithOverviewMode = true
             setSupportZoom(false)
+            textZoom = 100 // ignora o "tamanho da fonte" do sistema, que deixava tudo grande em TV Box
             builtInZoomControls = false
             userAgentString = userAgentString + " VeloxApp/" + BuildConfig.VERSION_NAME + if (isTv) " AndroidTV" else ""
         }
@@ -111,6 +114,9 @@ class MainActivity : ComponentActivity() {
         }
 
         chrome = object : WebChromeClient() {
+            // sem isso o Android mostra um quadro cinza com um "play" enquanto o vídeo carrega
+            override fun getDefaultVideoPoster(): Bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+
             // tela cheia pedida pelo site (mini player)
             override fun onShowCustomView(view: View, callback: CustomViewCallback) {
                 if (customView != null) { callback.onCustomViewHidden(); return }
@@ -225,13 +231,27 @@ class MainActivity : ComponentActivity() {
         fun version(): String = BuildConfig.VERSION_NAME
 
         @JavascriptInterface
+        fun versionCode(): Int = BuildConfig.VERSION_CODE
+
+        /** Só a versão por APK (fora da Play Store) se atualiza sozinha. */
+        @JavascriptInterface
+        fun canUpdate(): Boolean = BuildConfig.SELF_UPDATE
+
+        @JavascriptInterface
+        fun update(url: String) { if (BuildConfig.SELF_UPDATE) runOnUiThread { updater.start(url) } }
+
+        @JavascriptInterface
         fun isTv(): Boolean = this@MainActivity.isTv
 
         @JavascriptInterface
         fun exit() { runOnUiThread { finish() } }
     }
 
-    override fun onResume() { super.onResume(); web.onResume() }
+    override fun onResume() {
+        super.onResume()
+        web.onResume()
+        if (BuildConfig.SELF_UPDATE) updater.resumeIfPending()
+    }
     override fun onPause() { web.onPause(); super.onPause() }
 
     override fun onSaveInstanceState(outState: Bundle) {
