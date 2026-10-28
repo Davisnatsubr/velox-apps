@@ -28,6 +28,8 @@ targets:
       path: Velox/Info.plist
       properties:
         CFBundleDisplayName: Velox Play
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         SiteURL: http://betaspark.saiyajinpixel.online/webplayer/
         BrandColor: "#0d0f14"
         UILaunchScreen:
@@ -56,6 +58,8 @@ targets:
       path: Pulso/Info.plist
       properties:
         CFBundleDisplayName: Pulso Play
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         SiteURL: http://pulso.saiyajinpixel.online/velox-pulso/
         BrandColor: "#0e1424"
         UILaunchScreen:

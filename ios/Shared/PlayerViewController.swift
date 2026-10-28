@@ -53,9 +53,17 @@ final class PlayerViewController: UIViewController {
         videoView.backgroundColor = .black
         view.addSubview(videoView)
         player.drawable = videoView
+        // o VLC desenha numa camada própria que "engole" os toques; quem recebe o toque é uma camada transparente por cima
+        videoView.isUserInteractionEnabled = false
+        let catcher = UIView(frame: view.bounds)
+        catcher.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        catcher.backgroundColor = .clear
+        view.addSubview(catcher)
+        catcher.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(toggleControls)))
+        let swipe = UISwipeGestureRecognizer(target: self, action: #selector(closeTapped))
+        swipe.direction = .down
+        catcher.addGestureRecognizer(swipe)
         buildUI()
-        let tap = UITapGestureRecognizer(target: self, action: #selector(toggleControls))
-        view.addGestureRecognizer(tap)
         tickTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in self?.tick() }
         play(0)
         showControls()

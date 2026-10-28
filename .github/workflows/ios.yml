@@ -38,7 +38,7 @@ jobs:
           for S in Velox Pulso; do
             xcodebuild -workspace VeloxApps.xcworkspace -scheme $S -configuration Release \
               -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
-              CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+              CURRENT_PROJECT_VERSION=${{ github.run_number }} MARKETING_VERSION=1.0.${{ github.run_number }} \
               CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build 2>&1 | tee -a ../build-ios.log | grep -E "error:|warning: .*(Swift|swift)|BUILD" || true
             APP=$(ls -d build/Build/Products/Release-iphoneos/*${S}*.app | head -1)
             test -d "$APP"
