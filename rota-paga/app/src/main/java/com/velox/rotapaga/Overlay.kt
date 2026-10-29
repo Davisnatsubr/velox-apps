@@ -99,9 +99,11 @@ object Overlay {
             val x = v / (o.minutos / 60.0); val g = Calc.grade(x, c.optDouble("ruimHora", 0.0), c.optDouble("metaHora", 0.0))
             out += Triple("R$/hora", Calc.dec(x, 0), g); grades += g
         }
+        // lucro real: desconta o custo por km completo (combustível + manutenção + depreciação + fixos)
         val cons = c.optDouble("cons", 0.0)
-        if (v != null && v > 0 && o.km != null && cons > 0) {
-            val lucro = v - o.km / cons * c.optDouble("gas", 0.0)
+        val custoKm = c.optDouble("custoKm", 0.0).let { if (it > 0) it else if (cons > 0) c.optDouble("gas", 0.0) / cons else 0.0 }
+        if (v != null && v > 0 && o.km != null && custoKm > 0) {
+            val lucro = v - o.km * custoKm
             out += Triple("Lucro %", Calc.dec(lucro / v * 100, 0), if (lucro <= 0) 3 else 0)
         }
         val ver = when { grades.isEmpty() -> 0; 3 in grades -> 3; 2 in grades -> 2; else -> 1 }

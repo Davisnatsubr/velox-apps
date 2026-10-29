@@ -142,12 +142,25 @@ async function pickPhoto(){
 }
 
 /* ================= contas ================= */
+/* Custo real por km, nos 5 passos da planilha "Custo por KM":
+   combustível + manutenção + depreciação + custos fixos anuais. "inv" é o custo que não aparece no dia (tudo menos o combustível). */
+const MANUT_DEF=[["Troca de óleo + filtro + aditivos","",""],["Pneus (jogo)","",""],["Palhetas / lâmpadas","",""],["Freios (pastilhas/lonas)","",""],["Revisões / imprevistos","",""]];
+function custoKm(c){
+  c=c||cfg.custo||{};
+  const comb=cfg.cons?cfg.gas/cfg.cons:0;
+  const man=(c.manut||[]).reduce((a,m)=>a+(num(m[2])>0?num(m[1])/num(m[2]):0),0);
+  const ka=num(c.kmAno);
+  const dep=ka>0?Math.max(0,num(c.vHoje)-num(c.vAno))/ka:0;
+  const fix=ka>0?(num(c.seguro)+num(c.ipva)+num(c.cel)+num(c.equip))/ka:0;
+  const set=man+dep+fix>0, inv=set?man+dep+fix:num(cfg.desg);
+  return {comb,man,dep,fix,inv,set,total:comb+inv};
+}
 function metrics(it){
   const v=num(it.valor), km=num(it.km), pct=num(it.pacotes), par=num(it.paradas), min=num(it.tempo), ped=num(it.pedagio);
-  const cons=num(it.cons)||cfg.cons;
-  const comb=km>0&&cons>0?km/cons*cfg.gas:0;
-  const lucro=v-comb-ped;
-  return {v,km,comb,ped,lucro,pacotes:pct,
+  const cons=num(it.cons)||cfg.cons, ck=custoKm();
+  const comb=km>0&&cons>0?km/cons*cfg.gas:0, inv=km*ck.inv, custo=comb+inv;
+  const lucro=v-custo-ped; /* lucro real: já desconta o desgaste do carro */
+  return {v,km,comb,inv,custo,ped,lucro,pacotes:pct,
     porPct:pct>0?v/pct:null, porParada:par>0?v/par:null, porKm:km>0?v/km:null,
     porHora:min>0?v/(min/60):null, lucroHora:min>0?lucro/(min/60):null};
 }
@@ -475,9 +488,9 @@ const Rotas=(()=>{
     const box=$("#routeOpts"); if(!box) return;
     const n=stopsToday().filter(s=>(s.status||"pendente")==="pendente").length;
     box.innerHTML=opts.map((o,i)=>{
-      const comb=cfg.cons?o.km/cfg.cons*cfg.gas:0, tot=o.min+n*cfg.tParada;
+      const comb=o.km*custoKm().total, tot=o.min+n*cfg.tParada;
       return '<button type="button" class="ropt" data-ropt="'+i+'" aria-pressed="'+(i===sel)+'"><span class="bar" style="background:var('+o.color+')"></span>'+
-        '<span style="min-width:0"><span class="t1">'+esc(o.nome)+'</span><span class="t2 num">'+hm(o.min)+' dirigindo + '+hm(n*cfg.tParada)+' nas paradas · '+brl(comb)+' de combustível</span>'+
+        '<span style="min-width:0"><span class="t1">'+esc(o.nome)+'</span><span class="t2 num">'+hm(o.min)+' dirigindo + '+hm(n*cfg.tParada)+' nas paradas · custo '+brl(comb)+'</span>'+
         (o.tags.length?'<span class="tag">'+o.tags.join(" · ")+'</span>':'')+'</span>'+
         '<span style="text-align:right"><b class="num">'+dec(o.km,1)+' km</b><span class="t2 num">'+hm(tot)+'</span></span></button>';
     }).join("")+(opts.length?'<div class="btns"><button class="btn" type="button" id="useRoute">Usar esta rota</button><button class="btn ghost" type="button" id="navRoute">'+I.nav+'Navegar</button></div>':'');
@@ -543,7 +556,7 @@ const Trip=(()=>{
   }
   function live(){
     const h=elapsed()/3600000, km=st.km, v=st.valor, p=st.pacotes;
-    const comb=cfg.cons?km/cfg.cons*cfg.gas:0;
+    const ck=custoKm(), comb=km*ck.total;
     const list=stopsToday(), tot=list.reduce((a,s)=>a+num(s.pacotes),0), dn=list.filter(s=>s.status==="entregue").reduce((a,s)=>a+num(s.pacotes),0);
     const pace=h>0.05&&dn?dn/h:null;
     return {h,km,v,p,comb,lucro:v-comb,porHora:h>0.02&&v?v/h:null,lucroHora:h>0.02&&v?(v-comb)/h:null,porKm:km>=1&&v?v/km:null,porPct:p?v/p:null,tot,dn,pace,eta:pace&&tot>dn?(tot-dn)/pace*60:null};
@@ -625,13 +638,14 @@ function renderHist(){
       :emptyBox("camera","Nenhum comprovante","Anexe fotos em abastecimentos, gastos, paradas entregues e PNR.");
   }
   $("#hList").innerHTML=html; Fotos.hydrate($("#hList"));
+  renderSemana(f);
 }
 
 /* ---------- Ajustes ---------- */
 function renderAjustes(){
   const set=(id,v)=>{ const e=$(id); if(e&&document.activeElement!==e) e.value=v; };
   set("#a_nome",cfg.nome); set("#a_nav",cfg.nav); set("#a_tParada",String(cfg.tParada)); set("#a_cidade",cfg.cidade);
-  set("#a_veiculo",cfg.veiculo); set("#a_cons",fmtCfg(cfg.cons)); set("#a_gas",fmtCfg(cfg.gas)); set("#a_desg",fmtCfg(cfg.desg));
+  set("#a_veiculo",cfg.veiculo); set("#a_cons",fmtCfg(cfg.cons)); set("#a_gas",fmtCfg(cfg.gas)); const ck=custoKm(); $("#a_custoV").textContent=brl(ck.total)+"/km"; $("#a_custoS").textContent=ck.set?"combustível "+brl(ck.comb)+" + carro "+brl(ck.inv):"Toque para calcular o seu (hoje é só uma estimativa)";
   ["Pct","Km","Hora"].forEach(k=>{ set("#a_meta"+k,fmtCfg(cfg["meta"+k])); set("#a_ruim"+k,fmtCfg(cfg["ruim"+k])); });
   set("#a_casa",cfg.casa); set("#a_trabalho",cfg.trabalho);
   document.querySelectorAll("#aTema button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===cfg.tema)));
@@ -659,7 +673,7 @@ function renderAlert(){
 }
 function pushAlertCfg(){
   if(!N) return;
-  nat("setAlertConfig",JSON.stringify({enabled:!!cfg.alertOn,keywords:String(cfg.alertWords||"").split(",").map(s=>s.trim()).filter(Boolean),apps:cfg.alertApps||[],seconds:+cfg.alertSecs||10,ruimPct:num(cfg.ruimPct),metaPct:num(cfg.metaPct),ruimKm:num(cfg.ruimKm),metaKm:num(cfg.metaKm),ruimHora:num(cfg.ruimHora),metaHora:num(cfg.metaHora),gas:cfg.gas,cons:cfg.cons,overlay:!!cfg.overlayOn,bubble:!!cfg.bubbleOn}));
+  nat("setAlertConfig",JSON.stringify({enabled:!!cfg.alertOn,keywords:String(cfg.alertWords||"").split(",").map(s=>s.trim()).filter(Boolean),apps:cfg.alertApps||[],seconds:+cfg.alertSecs||10,ruimPct:num(cfg.ruimPct),metaPct:num(cfg.metaPct),ruimKm:num(cfg.ruimKm),metaKm:num(cfg.metaKm),ruimHora:num(cfg.ruimHora),metaHora:num(cfg.metaHora),gas:cfg.gas,cons:cfg.cons,custoKm:custoKm().total,overlay:!!cfg.overlayOn,bubble:!!cfg.bubbleOn}));
 }
 
 /* ================= folhas (telas que sobem) ================= */
@@ -774,14 +788,14 @@ function calcHtml(tipo,o){
   if(tipo==="entrega"){
     cells=cell("R$/pacote",m.porPct!=null?brl(m.porPct):null,grade(m.porPct,"pct"))+cell("R$/parada",m.porParada!=null?brl(m.porParada):null)+
       cell("R$/km",m.porKm!=null?brl(m.porKm):null,grade(m.porKm,"km"))+cell("R$/hora",m.porHora!=null?brl0(m.porHora):null,grade(m.porHora,"hora"))+
-      cell("Combustível",m.comb?brl(m.comb):null)+cell("Lucro",m.v?brl(m.lucro):null);
+      cell("Custo do km",m.custo?brl(m.custo):null)+cell("Lucro real",m.v?brl(m.lucro):null,m.v&&m.lucro<=0?"bad":"");
   } else {
     cells=cell("R$/km",m.porKm!=null?brl(m.porKm):null,grade(m.porKm,"km"))+cell("R$/hora",m.porHora!=null?brl0(m.porHora):null,grade(m.porHora,"hora"))+
-      cell("Combustível",m.comb?brl(m.comb):null)+cell("Pedágio",m.ped?brl(m.ped):null)+cell("Lucro",m.v?brl(m.lucro):null)+cell("Lucro/hora",m.lucroHora!=null?brl0(m.lucroHora):null);
+      cell("Custo do km",m.custo?brl(m.custo):null)+cell("Pedágio",m.ped?brl(m.ped):null)+cell("Lucro real",m.v?brl(m.lucro):null,m.v&&m.lucro<=0?"bad":"")+cell("Lucro/hora",m.lucroHora!=null?brl0(m.lucroHora):null);
   }
   let f="";
   if(tipo==="entrega"&&m.porPct!=null) f=brl(m.v)+" ÷ "+m.pacotes+" pacotes = "+brl(m.porPct)+" por pacote";
-  else if(m.comb) f="Combustível: "+dec(m.km,0)+" km ÷ "+dec(num(o.cons)||cfg.cons,1)+" km/L × "+brl(cfg.gas)+"/L";
+  if(m.custo) f+=(f?"<br>":"")+"Custo do km: "+dec(m.km,1)+" km × "+brl(m.custo/m.km)+" (combustível "+brl(m.comb/m.km)+" + carro "+brl(custoKm().inv)+")";
   return '<div class="calc-h '+v+'"><span>'+VERD[v]+'</span><span style="font-weight:600;font-size:12px">'+(tipo==="entrega"?"Bom a partir de "+brl(cfg.metaPct)+"/pct":"Bom a partir de "+brl(cfg.metaKm)+"/km")+'</span></div><div class="calc-g">'+cells+'</div>'+(f?'<div class="formula num">'+f+'</div>':'');
 }
 
@@ -829,14 +843,105 @@ function fillTripSheet(){
     (L.tot?'<div class="stack8"><div class="sec-h"><span class="sub strong">'+L.dn+' de '+L.tot+' pacotes entregues</span><span class="sub">'+(L.eta?"termina em ~"+hm(L.eta):"")+'</span></div><div class="prog"><i style="width:'+Math.min(100,L.dn/L.tot*100)+'%"></i></div></div>':'')+
     '<div class="calc"><div class="calc-h '+(L.porHora!=null?grade(L.porHora,"hora")||"none":"none")+'"><span>'+(L.v?"Rendendo agora":"Sem valor da rota")+'</span><button type="button" class="link" id="tEdit" style="font-size:13px">Editar valor</button></div><div class="calc-g">'+
       cell("R$/hora",L.porHora!=null?brl(L.porHora):null,grade(L.porHora,"hora"))+cell("R$/km",L.porKm!=null?brl(L.porKm):null,grade(L.porKm,"km"))+cell("R$/pacote",L.porPct!=null?brl(L.porPct):null,grade(L.porPct,"pct"))+
-      cell("Combustível",brl(L.comb))+cell("Lucro",L.v?brl(L.lucro):null)+cell("Lucro/hora",L.lucroHora!=null?brl(L.lucroHora):null)+'</div>'+
-      '<div class="formula num">Valor '+brl(L.v)+(L.p?' · '+L.p+' pacotes':'')+' · combustível = '+dec(L.km,1)+' km ÷ '+dec(cfg.cons,1)+' km/L × '+brl(cfg.gas)+'</div></div>';
+      cell("Custo do km",brl(L.comb))+cell("Lucro real",L.v?brl(L.lucro):null)+cell("Lucro/hora",L.lucroHora!=null?brl(L.lucroHora):null)+'</div>'+
+      '<div class="formula num">Valor '+brl(L.v)+(L.p?' · '+L.p+' pacotes':'')+' · custo = '+dec(L.km,1)+' km × '+brl(custoKm().total)+'/km</div></div>';
   const p=$("#tPause"); if(p) p.textContent=st.paused?"Retomar":"Pausar";
   $("#tEdit").onclick=()=>{
     sheet("Valor da rota",'<form class="grid" id="tf2" novalidate><div class="fld"><label for="t2v">Valor (R$)</label><input id="t2v" inputmode="decimal" value="'+esc(st.valor?dec(st.valor,2):"")+'"></div><div class="fld"><label for="t2p">Pacotes</label><input id="t2p" inputmode="numeric" value="'+esc(st.pacotes||"")+'"></div></form>',
       '<button class="btn" type="button" id="t2ok">Salvar</button>',"tripmeta");
     $("#t2ok").onclick=()=>{ Trip.setMeta($("#t2v").value,$("#t2p").value); openTrip(); };
   };
+}
+
+/* ---------- Custo por km (planilha "Custo por KM", 5 passos) ---------- */
+function kmPorAno(){
+  /* média dos últimos 30 dias (ou desde o primeiro lançamento, se o app é novo) levada para o ano */
+  const t=today(), ds=lancs().map(x=>x.data).filter(d=>d&&d>=addDays(t,-29)&&d<=t).sort();
+  if(!ds.length) return 0;
+  const dias=Math.max(7,Math.round((parse(t)-parse(ds[0]))/86400000)+1), s=sums(ds[0],t);
+  return s.km?Math.round(s.km/dias*365/100)*100:0;
+}
+function openCusto(){
+  const c=JSON.parse(JSON.stringify(cfg.custo||{}));
+  const man=(c.manut&&c.manut.length?c.manut:MANUT_DEF).map(m=>m.slice());
+  const inp=(id,v,ph)=>'<input id="'+id+'" inputmode="decimal" value="'+esc(v==null||v===0?"":String(v).replace(".",","))+'" placeholder="'+(ph||"0")+'">';
+  const fld=(id,l,v,ph)=>'<div class="fld"><label for="'+id+'">'+l+'</label>'+inp(id,v,ph)+'</div>';
+  const kmSug=kmPorAno();
+  sheet("Custo por km",
+    '<p class="sub" style="margin:0">Quanto custa cada km rodado, contando o que chega depois: óleo, pneu, o carro valendo menos, seguro. O app usa esse número no lucro real de cada rota.</p>'+
+    '<div class="stack8"><h4 class="step">1 · Combustível</h4><div class="grid">'+fld("ck_gas","Preço (R$/litro)",cfg.gas)+fld("ck_cons","Consumo (km/litro)",cfg.cons)+'</div></div>'+
+    '<div class="stack8"><h4 class="step">2 · Manutenção</h4><p class="sub" style="margin:0">Quanto custa e quantos km dura cada item.</p>'+
+      man.map((m,i)=>'<div class="mrow"><span class="t1" style="white-space:normal">'+esc(m[0])+'</span>'+inp("ck_mc"+i,m[1],"R$")+inp("ck_md"+i,m[2],"dura km")+'</div>').join("")+'</div>'+
+    '<div class="stack8"><h4 class="step">3 · Depreciação do carro</h4><div class="grid">'+fld("ck_vh","Valor do carro hoje",c.vHoje)+fld("ck_va","Valor daqui a 1 ano",c.vAno)+
+      '<div class="fld full"><label for="ck_ka">Km que você roda por ano</label>'+inp("ck_ka",c.kmAno,kmSug?String(kmSug):"30000")+
+      (kmSug?'<button type="button" class="link" id="ck_kaUse" style="text-align:left;font-size:14px">Estimar pelos meus lançamentos: '+kmSug.toLocaleString("pt-BR")+' km/ano</button>':'')+'</div></div></div>'+
+    '<div class="stack8"><h4 class="step">4 · Custos fixos do ano</h4><div class="grid">'+fld("ck_seg","Seguro / proteção",c.seguro)+fld("ck_ipva","IPVA + licenciamento",c.ipva)+
+      fld("ck_cel","Celular + apps",c.cel)+fld("ck_eq","Equipamentos",c.equip,"capa, bota…")+'</div></div>'+
+    '<div class="calc" id="ckOut"></div>'+
+    '<p class="sub">Se a troca de óleo ou o pneu já estão aqui, não precisa lançar como gasto quando pagar: o app já desconta um pouco a cada km.</p>',
+    '<button class="btn" type="button" id="ckSave">Salvar e usar</button>',"custo");
+  const read=()=>{ const g=id=>$("#"+id).value.trim();
+    return {manut:man.map((m,i)=>[m[0],g("ck_mc"+i),g("ck_md"+i)]),vHoje:g("ck_vh"),vAno:g("ck_va"),kmAno:g("ck_ka"),seguro:g("ck_seg"),ipva:g("ck_ipva"),cel:g("ck_cel"),equip:g("ck_eq")}; };
+  const upd=()=>{
+    const old={gas:cfg.gas,cons:cfg.cons}; cfg.gas=num($("#ck_gas").value)||old.gas; cfg.cons=num($("#ck_cons").value)||old.cons;
+    const k=custoKm(read()); cfg.gas=old.gas; cfg.cons=old.cons;
+    const g=(l,v)=>'<div><small>'+l+'</small><b class="num">'+brl(v)+'</b></div>';
+    const ganho=(()=>{ const t=today(), s=sums(addDays(t,-29),t); return s.km?s.ganhos/s.km:0; })();
+    $("#ckOut").innerHTML='<div class="calc-h good"><span>Custo total por km</span><span class="num" style="font-size:20px">'+brl(k.total)+'</span></div><div class="calc-g">'+
+      g("Combustível",k.comb)+g("Manutenção",k.man)+g("Depreciação",k.dep)+g("Fixos",k.fix)+g("Custo invisível",k.inv)+
+      (ganho?'<div><small>Seu ganho/km</small><b class="num">'+brl(ganho)+'</b></div>':'<div><small>Seu ganho/km</small><b>—</b></div>')+'</div>'+
+      '<div class="formula">'+(ganho?(ganho>k.total?"Nos últimos 30 dias sobrou "+brl(ganho-k.total)+" por km. O custo levou "+dec(k.total/ganho*100,0)+"% do bruto.":"Nos últimos 30 dias o ganho por km não cobriu o custo: você rodou pagando para trabalhar."):
+        "Rota abaixo de "+brl(k.total)+" por km não paga o carro.")+'</div>';
+  };
+  $("#scrim").addEventListener("input",upd); upd();
+  if($("#ck_kaUse")) $("#ck_kaUse").onclick=()=>{ $("#ck_ka").value=String(kmSug); upd(); };
+  $("#ckSave").onclick=()=>{
+    cfg.custo=read(); cfg.gas=num($("#ck_gas").value)||cfg.gas; cfg.cons=num($("#ck_cons").value)||cfg.cons;
+    const k=custoKm(); if(k.set) cfg.desg=Math.round(k.inv*100)/100;
+    if(k.total>num(cfg.ruimKm)){ cfg.ruimKm=Math.ceil(k.total*100)/100; toast("Semáforo: rota abaixo de "+brl(cfg.ruimKm)+"/km agora fica vermelha"); } else toast("Custo por km salvo");
+    saveCfg(); closeSheet();
+  };
+}
+
+/* ---------- Controle semanal (planilha "Controle Semanal") ---------- */
+function semana(f){
+  const dias=["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"], ck=custoKm(), rows=[];
+  for(let i=0;i<7;i++){
+    const d=addDays(f,i), r={dia:dias[i],data:d,km:0,pct:0,bruto:0,comb:0,outros:0};
+    lancs().filter(x=>(x.data||today())===d).forEach(x=>{ const v=num(x.valor);
+      if(x.tipo==="abast") r.comb+=v; else if(isG(x.tipo)) r.outros+=v;
+      else { r.bruto+=v; r.km+=num(x.km); r.outros+=num(x.pedagio); if(x.tipo==="entrega") r.pct+=num(x.pacotes); } });
+    pnrs().filter(x=>(x.data||today())===d).forEach(x=>r.outros+=num(x.desconto));
+    r.liq=r.bruto-r.comb-r.outros; rows.push(r);
+  }
+  const T={km:0,pct:0,bruto:0,comb:0,outros:0,liq:0}; rows.forEach(r=>Object.keys(T).forEach(k=>T[k]+=r[k]));
+  /* a planilha multiplica os km pelo custo TOTAL, que já tem o combustível que o "líquido" descontou;
+     aqui o custo invisível é só o que falta: manutenção + depreciação + fixos */
+  const inv=T.km*ck.inv, real=T.liq-inv;
+  return {rows,T,ck,inv,real};
+}
+function renderSemana(f){
+  const box=$("#semBox"); if(hP!=="semana"){ box.hidden=true; return; } box.hidden=false;
+  const S=semana(f), t=today(), m=v=>v?brl(v):"—";
+  $("#semTab").innerHTML='<table><thead><tr><th>Dia</th><th>Km</th><th>Pct</th><th>Bruto</th><th>Comb.</th><th>Outros</th><th>Líquido</th><th>R$/km</th></tr></thead><tbody>'+
+    S.rows.map(r=>'<tr'+(r.data===t?' class="hoje"':'')+'><td><b>'+r.dia.slice(0,3)+'</b><small>'+r.data.slice(8)+"/"+r.data.slice(5,7)+'</small></td><td>'+(r.km?dec(r.km,0):"—")+'</td><td>'+(r.pct||"—")+'</td><td>'+m(r.bruto)+'</td><td>'+m(r.comb)+'</td><td>'+m(r.outros)+'</td><td class="'+(r.liq<0?"neg":"")+'">'+(r.bruto||r.comb||r.outros?brl(r.liq):"—")+'</td><td>'+(r.km?brl(r.liq/r.km):"—")+'</td></tr>').join("")+
+    '</tbody><tfoot><tr><td><b>Total</b></td><td>'+dec(S.T.km,0)+'</td><td>'+S.T.pct+'</td><td>'+brl(S.T.bruto)+'</td><td>'+brl(S.T.comb)+'</td><td>'+brl(S.T.outros)+'</td><td class="'+(S.T.liq<0?"neg":"")+'">'+brl(S.T.liq)+'</td><td>'+(S.T.km?brl(S.T.liq/S.T.km):"—")+'</td></tr></tfoot></table>';
+  const row=(k,v,cls)=>'<div class="r"><span class="k">'+k+'</span><span class="v'+(cls?" "+cls:"")+'">'+v+'</span></div>';
+  $("#semReal").innerHTML=
+    row("Custo do carro por km"+(S.ck.set?"":" <small class=\"muted\">(estimado)</small>"),brl(S.ck.inv))+
+    row("Custo invisível da semana ("+dec(S.T.km,0)+" km)","−"+brl(S.inv),"neg")+
+    row("<b>Lucro real da semana</b>","<b>"+brl(S.real)+"</b>",S.real<0?"neg":"pos")+
+    row("Ganho bruto por km",S.T.km?brl(S.T.bruto/S.T.km):"—")+
+    row("Lucro real por km",S.T.km?brl(S.real/S.T.km):"—",S.T.km&&S.real<0?"neg":"");
+}
+function exportSemana(){
+  const [f]=hRange(), S=semana(f), q=v=>String(v).replace(".",",");
+  const L=["Dia;Data;Km rodados;Pacotes;Ganho bruto;Combustível;Outros gastos;Líquido do dia;Líquido/km"];
+  S.rows.forEach(r=>L.push([r.dia,r.data.split("-").reverse().join("/"),q(r.km),r.pct,q(r.bruto.toFixed(2)),q(r.comb.toFixed(2)),q(r.outros.toFixed(2)),q(r.liq.toFixed(2)),r.km?q((r.liq/r.km).toFixed(2)):""].join(";")));
+  L.push(["TOTAL","",q(S.T.km),S.T.pct,q(S.T.bruto.toFixed(2)),q(S.T.comb.toFixed(2)),q(S.T.outros.toFixed(2)),q(S.T.liq.toFixed(2)),S.T.km?q((S.T.liq/S.T.km).toFixed(2)):""].join(";"));
+  L.push("",["Custo do carro por km (manutenção + depreciação + fixos)","","","","","","","",q(S.ck.inv.toFixed(2))].join(";"),
+    ["Custo invisível da semana","","","","","","","",q(S.inv.toFixed(2))].join(";"),["LUCRO REAL da semana","","","","","","","",q(S.real.toFixed(2))].join(";"));
+  saveText("rota-paga-semana-"+f+".csv","text/csv","\ufeff"+L.join("\n"));
 }
 
 /* ---------- Fretômetro ---------- */
@@ -975,15 +1080,16 @@ $("#finishRoute").onclick=()=>{
 
 document.querySelectorAll("#hSeg button").forEach(b=>b.onclick=()=>{ hP=b.dataset.p; hRef=today(); renderHist(); });
 document.querySelectorAll("#hTab button").forEach(b=>b.onclick=()=>{ hTab=b.dataset.t; renderHist(); });
+$("#semCsv").onclick=exportSemana; $("#semCusto").onclick=openCusto;
 $("#hPrev").onclick=()=>hShift(-1); $("#hNext").onclick=()=>hShift(1);
 
 $("#a_tParada").innerHTML=[1,2,3,4,5,6,8,10,15].map(n=>'<option value="'+n+'">'+n+' minuto'+(n>1?"s":"")+'</option>').join("");
 const bindCfg=(id,key,isNum,after)=>$(id).addEventListener("change",e=>{ const v=e.target.value.trim(); cfg[key]=isNum?num(v):v; if(after) after(); saveCfg(); });
 bindCfg("#a_nome","nome"); bindCfg("#a_nav","nav"); bindCfg("#a_cidade","cidade");
 bindCfg("#a_casa","casa",0,()=>{ delete cfg.casaLL; }); bindCfg("#a_trabalho","trabalho",0,()=>{ delete cfg.trabalhoLL; setTimeout(Geo.kick,100); });
-bindCfg("#a_tParada","tParada",1); bindCfg("#a_cons","cons",1); bindCfg("#a_gas","gas",1); bindCfg("#a_desg","desg",1);
+bindCfg("#a_tParada","tParada",1); bindCfg("#a_cons","cons",1); bindCfg("#a_gas","gas",1); $("#a_custo").onclick=openCusto;
 ["Pct","Km","Hora"].forEach(k=>{ bindCfg("#a_meta"+k,"meta"+k,1); bindCfg("#a_ruim"+k,"ruim"+k,1); });
-$("#a_veiculo").addEventListener("change",e=>{ const v=e.target.value; cfg.veiculo=v; if(VEIC[v]){ if(VEIC[v].cons) cfg.cons=VEIC[v].cons; cfg.desg=VEIC[v].desg; } saveCfg(); toast("Consumo e desgaste ajustados para "+e.target.selectedOptions[0].text.toLowerCase()); });
+$("#a_veiculo").addEventListener("change",e=>{ const v=e.target.value; cfg.veiculo=v; if(VEIC[v]){ if(VEIC[v].cons) cfg.cons=VEIC[v].cons; if(!custoKm().set) cfg.desg=VEIC[v].desg; } saveCfg(); toast("Consumo e desgaste ajustados para "+e.target.selectedOptions[0].text.toLowerCase()); });
 document.querySelectorAll("#aTema button").forEach(b=>b.onclick=()=>{ cfg.tema=b.dataset.v; saveCfg(); });
 $("#btnExport").onclick=exportCsv; $("#btnBackup").onclick=backup; $("#btnRestore").onclick=restore;
 $("#alGrant").onclick=()=>nat("openAlertAccess");

@@ -145,6 +145,14 @@
     </div>
   </div></section>
 
+  <section class="panel stack" id="semBox" hidden>
+    <div class="sec-h"><h2>Controle da semana</h2><button class="link" type="button" id="semCsv">Exportar</button></div>
+    <div class="tablewrap num" id="semTab"></div>
+    <div class="sec-h"><span class="sub strong">A verdade da semana</span><button class="link" type="button" id="semCusto">Custo por km ›</button></div>
+    <div class="rows num" id="semReal"></div>
+    <p class="sub">O líquido do dia desconta o que você gastou. O lucro real tira também o custo que chega depois (óleo, pneu, o carro valendo menos, seguro). Se ele ficou bem abaixo do líquido, esse é o tamanho do custo que não aparecia.</p>
+  </section>
+
   <div class="stats num" id="hStats"></div>
   <div class="rows num" id="hPerf"></div>
 
@@ -187,7 +195,7 @@
     <label class="r"><span class="ico" data-i="truck"></span><span class="k">Tipo de veículo</span><select id="a_veiculo"><option value="bike">Bicicleta</option><option value="moto">Moto</option><option value="carro">Carro</option><option value="util">Utilitário</option><option value="caminhao">Caminhão</option></select></label>
     <label class="r"><span class="ico" data-i="gauge"></span><span class="k">Consumo (km/L)</span><input class="inl" id="a_cons" inputmode="decimal"></label>
     <label class="r"><span class="ico" data-i="fuel"></span><span class="k">Combustível (R$/L)</span><input class="inl" id="a_gas" inputmode="decimal"></label>
-    <label class="r"><span class="ico" data-i="wrench"></span><span class="k">Desgaste (R$/km)</span><input class="inl" id="a_desg" inputmode="decimal"></label>
+    <button class="r" type="button" id="a_custo"><span class="ico" data-i="wrench"></span><span class="k">Custo real por km<span class="t2" id="a_custoS"></span></span><span class="v" id="a_custoV"></span><span class="v muted">›</span></button>
   </div><p class="sub pad">O preço do combustível se atualiza sozinho quando você lança um abastecimento.</p></div>
 
   <div class="set"><small>Semáforo</small><div class="rows">
