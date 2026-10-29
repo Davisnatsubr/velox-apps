@@ -18,6 +18,8 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.provider.Settings
+import android.graphics.Color
+import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 
@@ -70,11 +72,19 @@ object Alert {
         val pi = PendingIntent.getActivity(ctx, 1, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val stopPi = PendingIntent.getBroadcast(ctx, 2, Intent(ctx, AlarmStopReceiver::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val n = NotificationCompat.Builder(ctx, CH)
+        val r = Overlay.compute(ctx, o)
+        val b = NotificationCompat.Builder(ctx, CH)
             .setSmallIcon(R.drawable.ic_stat_route)
             .setContentTitle(title(o, c))
             .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+        if (r.cells.isNotEmpty()) {
+            // cartão completo ao puxar a notificação, como o cartão flutuante
+            b.setStyle(NotificationCompat.DecoratedCustomViewStyle())
+                .setCustomContentView(cardViews(ctx, R.layout.notif_card_small, r, text, app))
+                .setCustomBigContentView(cardViews(ctx, R.layout.notif_card_big, r, text, app))
+                .setCustomHeadsUpContentView(cardViews(ctx, R.layout.notif_card_small, r, text, app))
+        } else b.setStyle(NotificationCompat.BigTextStyle().bigText(text))
+        val n = b
             .setSubText(app)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
@@ -91,6 +101,32 @@ object Alert {
         if (c.optBoolean("overlay", true)) Overlay.showCard(ctx, o, app)
         play(ctx, c.optInt("seconds", 10).coerceIn(3, 60))
         MainActivity.notifyRoute()
+    }
+
+    private val COR = mapOf(0 to "#8A9A93", 1 to "#2E9E5B", 2 to "#D99A0B", 3 to "#E0452F")
+
+    private fun cardViews(ctx: Context, layout: Int, r: Overlay.Res, text: String, app: String): RemoteViews {
+        val v = RemoteViews(ctx.packageName, layout)
+        v.setTextViewText(R.id.linha, if (r.line.isNotEmpty()) "$app · ${r.line}" else app)
+        val ids = listOf(
+            arrayOf(R.id.c0, R.id.l0, R.id.b0, R.id.v0), arrayOf(R.id.c1, R.id.l1, R.id.b1, R.id.v1),
+            arrayOf(R.id.c2, R.id.l2, R.id.b2, R.id.v2), arrayOf(R.id.c3, R.id.l3, R.id.b3, R.id.v3),
+        )
+        ids.forEachIndexed { i, id ->
+            val cell = r.cells.getOrNull(i)
+            if (cell == null) { v.setViewVisibility(id[0], android.view.View.GONE); return@forEachIndexed }
+            v.setViewVisibility(id[0], android.view.View.VISIBLE)
+            v.setTextViewText(id[1], cell.first)
+            v.setTextViewText(id[3], cell.second)
+            v.setInt(id[2], "setBackgroundColor", Color.parseColor(COR[cell.third] ?: COR[0]!!))
+        }
+        if (layout == R.layout.notif_card_big) {
+            val ver = when (r.verdict) { 1 -> "Compensa"; 2 -> "No limite"; 3 -> "Abaixo do seu mínimo"; else -> "" }
+            v.setTextViewText(R.id.veredito, ver)
+            v.setTextColor(R.id.veredito, Color.parseColor(COR[r.verdict] ?: COR[0]!!))
+            v.setTextViewText(R.id.texto, text)
+        }
+        return v
     }
 
     private fun play(ctx: Context, secs: Int) {

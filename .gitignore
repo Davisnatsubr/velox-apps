@@ -17,3 +17,4 @@ rota-paga/app/src/main/assets/www/vendor/
 rota-paga/.gradle/
 rota-paga/app/build/
 rota-paga/build/
+rota-paga/servidor/dados/*.sqlite*

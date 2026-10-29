@@ -59,6 +59,21 @@ object Store {
         } catch (e: Exception) { null }
     }
 
+    /** Últimas notificações lidas e o que o app fez com cada uma (aparece em Ajustes, para entender por que não disparou). */
+    fun log(ctx: Context, app: String, text: String, res: String) {
+        val old = logs(ctx)
+        val out = JSONArray().put(JSONObject().put("ts", System.currentTimeMillis()).put("app", app).put("text", text.take(220)).put("res", res))
+        for (i in 0 until minOf(old.length(), 19)) out.put(old.opt(i))
+        p(ctx).edit().putString("nlog", out.toString()).apply()
+    }
+
+    fun logs(ctx: Context): JSONArray = try { JSONArray(p(ctx).getString("nlog", "[]")) } catch (e: Exception) { JSONArray() }
+
+    /** Resultado da última tentativa de mostrar o cartão flutuante. */
+    fun setCardRes(ctx: Context, s: String) {
+        p(ctx).edit().putString("card_res", s).putLong("card_ts", System.currentTimeMillis()).apply()
+    }
+
     /** A mesma notificação costuma chegar várias vezes; ignora repetições por 90 s. */
     fun isDuplicate(ctx: Context, text: String): Boolean {
         val sp = p(ctx)

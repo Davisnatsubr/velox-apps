@@ -44,8 +44,55 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun alertStatus(): String = JSONObject()
         .put("access", NotificationManagerCompat.getEnabledListenerPackages(a).contains(a.packageName))
         .put("overlay", Settings.canDrawOverlays(a))
+        .put("notif", NotificationManagerCompat.from(a).areNotificationsEnabled())
+        .put("battery", (a.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager).isIgnoringBatteryOptimizations(a.packageName))
         .put("seen", Store.seen(a))
+        .put("log", Store.logs(a))
+        .put("cardRes", Store.p(a).getString("card_res", ""))
+        .put("cardTs", Store.p(a).getLong("card_ts", 0))
+        .put("fabricante", android.os.Build.MANUFACTURER ?: "")
+        .put("modelo", android.os.Build.MODEL ?: "")
+        .put("android", android.os.Build.VERSION.RELEASE ?: "")
         .toString()
+
+    /** Mostra o cartão flutuante com números de exemplo, sem tocar o alarme. */
+    @JavascriptInterface fun testCard(): String {
+        if (!Settings.canDrawOverlays(a)) { Store.setCardRes(a, "sem permissão de aparecer sobre outros apps"); return "permissao" }
+        Overlay.showCard(a, Calc.parse("R$ 150,00 · 48 pacotes · 32 km · 20 paradas · 240 min"), "Teste")
+        return "ok"
+    }
+
+    @JavascriptInterface fun openAppSettings(): String {
+        a.runOnUiThread {
+            try { a.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + a.packageName))) } catch (_: Exception) { }
+        }
+        return "ok"
+    }
+
+    /** Xiaomi/Redmi/Poco: tela de "Outras permissões" (janelas pop-up em segundo plano). */
+    @JavascriptInterface fun openMiuiPerms(): String {
+        a.runOnUiThread {
+            val i = Intent("miui.intent.action.APP_PERM_EDITOR").apply {
+                setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditorActivity")
+                putExtra("extra_pkgname", a.packageName)
+            }
+            try { a.startActivity(i) } catch (_: Exception) {
+                try { a.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + a.packageName))) } catch (_: Exception) { }
+            }
+        }
+        return "ok"
+    }
+
+    @JavascriptInterface fun openBattery(): String {
+        a.runOnUiThread {
+            try { a.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) } catch (_: Exception) {
+                try { a.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + a.packageName))) } catch (_: Exception) { }
+            }
+        }
+        return "ok"
+    }
+
+    @JavascriptInterface fun clearLog(): String { Store.p(a).edit().remove("nlog").apply(); return "ok" }
 
     @JavascriptInterface fun openAlertAccess(): String {
         a.runOnUiThread {

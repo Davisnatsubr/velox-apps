@@ -16,6 +16,9 @@ App Android para motorista de entregas (Mercado Livre Envios Extra e parecidos).
   - fotos de comprovante;
   - planilha e backup.
 
+- **Conta e painel de acessos** (opcional por enquanto): criar conta, entrar, backup automático na nuvem e um painel web para liberar, bloquear e dar validade aos usuários. O servidor fica em `servidor/`; veja `servidor/LEIA-ME.md`.
+- **Diagnóstico do alerta:** em Ajustes, o app mostra o que falta liberar, guias para Samsung e Xiaomi e as últimas notificações que leu, com o motivo de ter disparado ou não.
+
 ## Instalar para testar
 
 1. Abra a aba **Releases** do repositório no celular e baixe o `RotaPaga-1.0.N-teste.apk` mais novo.

@@ -643,6 +643,7 @@ function renderHist(){
 
 /* ---------- Ajustes ---------- */
 function renderAjustes(){
+  Conta.renderConta();
   const set=(id,v)=>{ const e=$(id); if(e&&document.activeElement!==e) e.value=v; };
   set("#a_nome",cfg.nome); set("#a_nav",cfg.nav); set("#a_tParada",String(cfg.tParada)); set("#a_cidade",cfg.cidade);
   set("#a_veiculo",cfg.veiculo); set("#a_cons",fmtCfg(cfg.cons)); set("#a_gas",fmtCfg(cfg.gas)); const ck=custoKm(); $("#a_custoV").textContent=brl(ck.total)+"/km"; $("#a_custoS").textContent=ck.set?"combustível "+brl(ck.comb)+" + carro "+brl(ck.inv):"Toque para calcular o seu (hoje é só uma estimativa)";
@@ -670,6 +671,28 @@ function renderAlert(){
   const keys=Object.keys(map);
   $("#alApps").innerHTML=keys.map(p=>'<label><input type="checkbox" data-app="'+esc(p)+'"'+((cfg.alertApps||[]).includes(p)?" checked":"")+'>'+esc(map[p])+'</label>').join("");
   $("#alAppsHint").hidden=false;
+  renderDiag(s);
+}
+/* diagnóstico do alerta e do cartão: cada item que falta, com o botão que resolve */
+function renderDiag(s){
+  const ok=(b,txt,fix,btn)=>'<div class="dg"><span class="chip '+(b?"good":"bad")+'">'+(b?"ok":"falta")+'</span><span class="k">'+txt+'</span>'+(!b&&btn?'<button type="button" class="link" data-fix="'+fix+'">'+btn+'</button>':'')+'</div>';
+  const fab=String(s.fabricante||"").toLowerCase();
+  let h=ok(s.access,"Acesso às notificações","openAlertAccess","Permitir")+
+    ok(s.overlay,"Aparecer sobre outros apps","openOverlayPermission","Permitir")+
+    ok(s.notif,"Notificações do Rota Paga ligadas","openAppSettings","Abrir")+
+    ok(s.battery,"Bateria sem restrição (o Android não desliga o app)","openBattery","Ajustar")+
+    ok(!!cfg.overlayOn,"Cartão por cima ligado aqui em cima","","");
+  if(s.cardRes) h+='<p class="sub">Último cartão ('+new Date(s.cardTs||0).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})+'): <b>'+esc(s.cardRes)+'</b></p>';
+  $("#diagList").innerHTML=h;
+  let b="";
+  if(/xiaomi|redmi|poco/.test(fab)) b='<div class="note-box"><b>Celular '+esc(s.fabricante)+':</b> a Xiaomi bloqueia janelas flutuantes mesmo com a permissão dada. Em <b>Outras permissões</b>, ligue <b>Mostrar janelas pop-up enquanto em segundo plano</b> e <b>Exibir na tela de bloqueio</b>. Em <b>Economia de bateria</b>, escolha <b>Sem restrições</b>, e ligue o <b>Início automático</b>.<button type="button" class="btn ghost" data-fix="openMiuiPerms" style="margin-top:10px;width:100%">Abrir permissões da Xiaomi</button></div>';
+  else if(/samsung/.test(fab)) b='<div class="note-box"><b>Celular Samsung:</b> a Samsung costuma desligar apps que leem notificações. Faça os três:<br>1. <b>Aplicativos › Rota Paga › Bateria</b>: escolha <b>Sem restrições</b>.<br>2. <b>Assistência do aparelho e bateria › Bateria › Limites de uso em segundo plano</b>: tire o Rota Paga de <b>Apps em suspensão</b> e de <b>Apps em suspensão profunda</b> e coloque em <b>Apps que nunca são suspensos</b>.<br>3. <b>Notificações › Configurações avançadas › Acesso à notificação do dispositivo</b>: confira se o Rota Paga está ligado. Se já estava, desligue e ligue de novo.<button type="button" class="btn ghost" data-fix="openAppSettings" style="margin-top:10px;width:100%">Abrir configurações do Rota Paga</button></div>';
+  else if(/motorola|oppo|realme|vivo|oneplus|huawei|honor|infinix|tecno/.test(fab)) b='<div class="note-box"><b>Celular '+esc(s.fabricante)+':</b> procure nas configurações do app por <b>Início automático</b>, <b>Execução em segundo plano</b> e <b>Bateria sem restrição</b>, e ligue os três.</div>';
+  $("#diagBrand").innerHTML=b;
+  const log=s.log||[];
+  $("#logList").innerHTML=log.length?log.map(l=>'<div class="lg"><div class="sec-h"><b>'+esc(l.app)+'</b><span class="chip '+(/ALERTA/.test(l.res)?"good":"none")+'">'+esc(l.res)+'</span></div><span class="t2" style="white-space:normal">'+
+    new Date(l.ts).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})+' · '+esc(l.text)+'</span></div>').join(""):
+    '<p class="sub">Nenhuma notificação lida ainda. Confira o acesso às notificações acima.</p>';
 }
 function pushAlertCfg(){
   if(!N) return;
@@ -1002,7 +1025,7 @@ window.__rota=function(type,data){
   try{
     if(type==="route"){ nat("stopAlarm"); closeSheet(); showDetect(data&&data.text||String(data||""),data&&data.app); }
     else if(type==="trip"){ Trip.refresh(); Trip.ui(); Trip.loop(); renderInicio(); if(data==="denied") toast("Sem a localização, o cronômetro conta só o tempo."); }
-    else if(type==="resume"){ renderAlert(); Trip.refresh(); Trip.ui(); Trip.loop(); const p=nat("takePendingRoute"); if(p){ const j=JSON.parse(p); showDetect(j.text,j.app); } }
+    else if(type==="resume"){ renderAlert(); Conta.refresh(); Trip.refresh(); Trip.ui(); Trip.loop(); const p=nat("takePendingRoute"); if(p){ const j=JSON.parse(p); showDetect(j.text,j.app); } }
   }catch(e){}
 };
 window.__appBack=function(){
@@ -1026,13 +1049,135 @@ function exportCsv(){
   saveText("rota-paga-"+today()+".csv","text/csv","﻿"+cols.join(";")+"\n"+rows.join("\n"));
 }
 function backup(){ saveText("rota-paga-backup-"+today()+".json","application/json",JSON.stringify({app:"rota-paga",v:1,em:new Date().toISOString(),items,cfg})); }
+/** Junta um backup aos dados atuais (não apaga nada; só traz o que falta). Devolve quantos registros entraram. */
+function mergeBackup(j){
+  if(!j||!Array.isArray(j.items)) throw new Error("backup inválido");
+  const ids=new Set(items.map(x=>x.id)); let n=0; j.items.forEach(x=>{ if(x&&x.id&&!ids.has(x.id)){ items.push(x); n++; } });
+  if(j.cfg) cfg={...DEF_CFG,...j.cfg,...{tema:cfg.tema}}; persist(); applyTema(); pushAlertCfg(); renderAll(); return n;
+}
+const backupJson=()=>JSON.stringify({app:"rota-paga",v:1,em:new Date().toISOString(),items,cfg});
 async function restore(){
   const f=await pickFile(".json,application/json"); if(!f) return;
-  try{ const j=JSON.parse(await f.text()); if(!j||!Array.isArray(j.items)) throw 0;
-    const ids=new Set(items.map(x=>x.id)); let n=0; j.items.forEach(x=>{ if(x&&x.id&&!ids.has(x.id)){ items.push(x); n++; } });
-    if(j.cfg) cfg={...DEF_CFG,...j.cfg,...{tema:cfg.tema}}; persist(); applyTema(); renderAll(); toast(n+" registros restaurados"); }
+  try{ toast(mergeBackup(JSON.parse(await f.text()))+" registros restaurados"); }
   catch(e){ toast("Esse arquivo não é um backup do Rota Paga."); }
 }
+
+/* ================= conta (servidor de acessos) ================= */
+const Conta=(()=>{
+  let st=lsGet("rp_conta",null)||{};
+  const save=()=>lsSet("rp_conta",st);
+  const srv=()=>String(lsGet("rp_srv","")||window.ROTA_SERVIDOR||"").trim();
+  function aparelho(){
+    let id=lsGet("rp_dev",""); if(!id){ id="d_"+newId()+newId(); lsSet("rp_dev",id); }
+    const s=natJ("alertStatus")||{};
+    return {id,nome:s.modelo?((s.fabricante||"")+" "+s.modelo+" · Android "+(s.android||"")).trim():navigator.userAgent.slice(0,110)};
+  }
+  async function call(a,data,url){
+    const u=(url||srv()); if(!u) throw new Error("O servidor de contas ainda não foi configurado.");
+    let r; try{ r=await fetch(u.replace(/\/?$/,"/")+"?a="+a,{method:"POST",headers:{"Content-Type":"text/plain"},
+      body:JSON.stringify({...(data||{}),a,token:st.token||undefined,versao:nat("version")||"web",aparelho:aparelho()})}); }
+    catch(e){ throw new Error("Sem conexão com o servidor. Confira a internet."); }
+    let j; try{ j=await r.json(); }catch(e){ throw new Error("O servidor respondeu algo estranho ("+r.status+"). Confira o endereço."); }
+    if(!j.ok) throw new Error(j.erro||"Erro no servidor");
+    return j;
+  }
+  function absorb(j){
+    st.modo=j.modo; st.aviso=j.aviso||""; st.usuario=j.usuario||null; st.acesso=j.acesso||{liberado:true}; st.cadastro=j.cadastro_aberto!==false; st.checkedAt=Date.now();
+    if(j.token) st.token=j.token;
+    if(st.token&&!j.usuario) st.token=null; /* token não vale mais (desconectado pelo painel) */
+    save(); ui();
+  }
+  async function refresh(){
+    if(!srv()) { ui(); return; }
+    try{ absorb(await call("status",{})); autoBackup(); }catch(e){ ui(); }
+  }
+  /* bloqueia o app só quando o servidor mandou (modo "conta" ou "assinatura"); sem internet, vale a última resposta por 7 dias */
+  function bloqueado(){
+    if(!srv()||!st.acesso||st.acesso.liberado) return false;
+    if(st.checkedAt&&Date.now()-st.checkedAt>7*864e5&&!st.usuario) return true;
+    return true;
+  }
+  function ui(){
+    const av=$("#avisoBox"); if(av){ av.hidden=!st.aviso; av.textContent=st.aviso||""; }
+    renderConta(); gate();
+  }
+  function gate(){
+    const g=$("#gate"), b=bloqueado(); g.hidden=!b; document.body.classList.toggle("gated",b);
+    if(!b) return;
+    const m=st.acesso||{};
+    $("#gateTitle").textContent=m.motivo==="vencido"||m.motivo==="sem_plano"?"Seu acesso precisa ser renovado":m.motivo==="bloqueado"?"Conta bloqueada":m.motivo==="pendente"?"Conta em análise":"Entre na sua conta";
+    $("#gateMsg").textContent=m.mensagem||"";
+    $("#gateForm").innerHTML=st.usuario?'<p class="sub">Conectado como <b>'+esc(st.usuario.email)+'</b>.</p><button class="btn ghost" type="button" id="gOut">Entrar com outra conta</button>':authForm("g");
+    if(st.usuario) $("#gOut").onclick=sair; else bindAuth("g");
+  }
+  function authForm(p,tab){
+    tab=tab||(st.cadastro===false?"entrar":"entrar");
+    return '<div class="seg" id="'+p+'Tabs"><button type="button" data-t="entrar" aria-pressed="'+(tab==="entrar")+'">Entrar</button>'+(st.cadastro!==false?'<button type="button" data-t="criar" aria-pressed="'+(tab==="criar")+'">Criar conta</button>':'')+'</div>'+
+      '<form class="stack" id="'+p+'Auth" novalidate data-tab="'+tab+'">'+
+      (tab==="criar"?'<div class="fld"><label for="'+p+'Nome">Nome</label><input id="'+p+'Nome" autocomplete="name"></div>':'')+
+      '<div class="fld"><label for="'+p+'Email">E-mail</label><input id="'+p+'Email" type="email" autocomplete="email" inputmode="email"></div>'+
+      (tab==="criar"?'<div class="fld"><label for="'+p+'Tel">WhatsApp (opcional)</label><input id="'+p+'Tel" inputmode="tel" autocomplete="tel"></div>':'')+
+      '<div class="fld"><label for="'+p+'Senha">Senha'+(tab==="criar"?" (mínimo 6)":"")+'</label><input id="'+p+'Senha" type="password" autocomplete="'+(tab==="criar"?"new-password":"current-password")+'"></div>'+
+      '<p class="err" id="'+p+'Err" hidden></p>'+
+      '<button class="btn" type="submit">'+(tab==="criar"?"Criar conta":"Entrar")+'</button></form>';
+  }
+  function bindAuth(p,after){
+    const box=$("#"+p+"Auth").parentElement;
+    $("#"+p+"Tabs").onclick=e=>{ const b=e.target.closest("[data-t]"); if(!b) return; const html=authForm(p,b.dataset.t);
+      const tmp=document.createElement("div"); tmp.innerHTML=html; $("#"+p+"Tabs").replaceWith(tmp.children[0]); $("#"+p+"Auth").replaceWith(tmp.children[0]); bindAuth(p,after); };
+    $("#"+p+"Auth").onsubmit=async e=>{
+      e.preventDefault(); const f=e.target, tab=f.dataset.tab, err=$("#"+p+"Err"), btn=f.querySelector("button[type=submit]");
+      const v=id=>($("#"+p+id)||{}).value||"";
+      err.hidden=true; btn.disabled=true; btn.textContent="Aguarde…";
+      try{
+        const j=tab==="criar"?await call("registrar",{nome:v("Nome").trim(),email:v("Email").trim(),telefone:v("Tel"),senha:v("Senha")}):await call("entrar",{email:v("Email").trim(),senha:v("Senha")});
+        absorb(j); toast(tab==="criar"?"Conta criada":"Pronto, você entrou"); if(after) after(); offerRestore();
+      }catch(x){ err.textContent=x.message; err.hidden=false; btn.disabled=false; btn.textContent=tab==="criar"?"Criar conta":"Entrar"; }
+    };
+    void box;
+  }
+  async function offerRestore(){
+    try{ const i=await call("backup_info",{}); if(i.backup&&!items.length){ const b=await call("backup_baixar",{}); const n=mergeBackup(JSON.parse(b.dados)); toast(n+" registros trazidos do seu backup na nuvem"); } }catch(e){}
+  }
+  async function sair(){ try{ await call("sair",{}); }catch(e){} st.token=null; st.usuario=null; save(); refresh(); toast("Você saiu da conta"); }
+  async function backupUp(quiet){ const j=await call("backup_enviar",{dados:backupJson()}); lsSet("rp_bk_at",Date.now()); if(!quiet) toast("Backup enviado para a nuvem"); renderConta(); return j; }
+  async function backupDown(){ const b=await call("backup_baixar",{}); const n=mergeBackup(JSON.parse(b.dados)); toast(n+" registros novos trazidos da nuvem"); }
+  function autoBackup(){ if(!st.token||!items.length) return; if(Date.now()-(lsGet("rp_bk_at",0)||0)>20*3600e3) backupUp(true).catch(()=>{}); }
+  function openLogin(){
+    if(!srv()){ toast("O login ainda não está ligado nesta versão do app."); return; }
+    sheet("Sua conta",'<p class="sub" style="margin:0">Com a conta, seus lançamentos ficam guardados na nuvem e voltam se você trocar de celular.</p><div class="stack" id="shAuthBox">'+authForm("s")+'</div>',"","auth");
+    bindAuth("s",()=>closeSheet());
+  }
+  function openSenha(){
+    sheet("Trocar senha",'<form class="stack" id="pwF" novalidate><div class="fld"><label for="pw1">Senha atual</label><input id="pw1" type="password" autocomplete="current-password"></div><div class="fld"><label for="pw2">Senha nova (mínimo 6)</label><input id="pw2" type="password" autocomplete="new-password"></div><p class="err" id="pwErr" hidden></p><button class="btn" type="submit">Trocar senha</button></form>',"","pw");
+    $("#pwF").onsubmit=async e=>{ e.preventDefault(); try{ await call("senha",{senha_atual:$("#pw1").value,senha_nova:$("#pw2").value}); closeSheet(); toast("Senha trocada"); }catch(x){ $("#pwErr").textContent=x.message; $("#pwErr").hidden=false; } };
+  }
+  function openServidor(){
+    sheet("Servidor de contas",'<p class="sub" style="margin:0">Endereço da pasta api do servidor (termina em /api/). Isto é para quem administra o app.</p>'+
+      '<div class="fld"><label for="srvU">Endereço</label><input id="srvU" inputmode="url" value="'+esc(srv())+'" placeholder="https://seudominio.com.br/rotapaga/api/"></div><p class="sub" id="srvR"></p>',
+      '<div class="btns"><button class="btn ghost" type="button" id="srvT">Testar</button><button class="btn" type="button" id="srvS">Salvar</button></div>',"srv");
+    $("#srvT").onclick=async()=>{ $("#srvR").textContent="Testando…"; try{ const j=await call("status",{},$("#srvU").value.trim()); $("#srvR").textContent="Funcionando: "+j.servico+" · modo "+j.modo; }catch(x){ $("#srvR").textContent=x.message; } };
+    $("#srvS").onclick=()=>{ lsSet("rp_srv",$("#srvU").value.trim()); st={}; save(); closeSheet(); refresh(); toast("Servidor salvo"); };
+  }
+  function renderConta(){
+    const box=$("#contaBox"); if(!box) return;
+    if(!srv()){ box.innerHTML='<div class="r"><span class="ico">'+I.user+'</span><span class="k">Conta e backup na nuvem<span class="t2">Em breve</span></span></div>'; return; }
+    const u=st.usuario;
+    if(!u){ box.innerHTML='<button class="r" type="button" id="cEnt"><span class="ico">'+I.user+'</span><span class="k">Entrar ou criar conta<span class="t2">Guarde seus lançamentos na nuvem</span></span><span class="v muted">›</span></button>'; $("#cEnt").onclick=openLogin; return; }
+    const val=u.expira?"válido até "+u.expira.split("-").reverse().join("/"):(st.modo==="aberto"?"acesso liberado":"sem validade");
+    const bk=lsGet("rp_bk_at",0);
+    box.innerHTML='<div class="r"><span class="ico">'+I.user+'</span><span class="k">'+esc(u.nome)+'<span class="t2">'+esc(u.email)+' · '+esc(u.plano?u.plano+" · ":"")+val+'</span></span></div>'+
+      '<button class="r" type="button" id="cUp"><span class="ico">'+I.up+'</span><span class="k">Enviar backup para a nuvem<span class="t2">'+(bk?"Último: "+new Date(bk).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})+" · automático 1 vez por dia":"Automático 1 vez por dia")+'</span></span><span class="v muted">›</span></button>'+
+      '<button class="r" type="button" id="cDown"><span class="ico">'+I.down+'</span><span class="k">Trazer backup da nuvem<span class="t2">Junta com o que já está neste celular</span></span><span class="v muted">›</span></button>'+
+      '<button class="r" type="button" id="cPw"><span class="ico">'+I.gear+'</span><span class="k">Trocar senha</span><span class="v muted">›</span></button>'+
+      '<button class="r" type="button" id="cOut"><span class="ico neg">'+I.user+'</span><span class="k">Sair da conta</span></button>';
+    $("#cUp").onclick=()=>backupUp().catch(x=>toast(x.message));
+    $("#cDown").onclick=()=>backupDown().catch(x=>toast(x.message));
+    $("#cPw").onclick=openSenha;
+    $("#cOut").onclick=()=>{ const b=$("#cOut .k"); if(!b.dataset.arm){ b.dataset.arm=1; b.textContent="Toque de novo para sair"; return; } sair(); };
+  }
+  return {refresh,openLogin,openServidor,renderConta,ui,get st(){return st;}};
+})();
 
 /* ================= ligações ================= */
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>go(b.dataset.tab));
@@ -1091,6 +1236,8 @@ bindCfg("#a_tParada","tParada",1); bindCfg("#a_cons","cons",1); bindCfg("#a_gas"
 ["Pct","Km","Hora"].forEach(k=>{ bindCfg("#a_meta"+k,"meta"+k,1); bindCfg("#a_ruim"+k,"ruim"+k,1); });
 $("#a_veiculo").addEventListener("change",e=>{ const v=e.target.value; cfg.veiculo=v; if(VEIC[v]){ if(VEIC[v].cons) cfg.cons=VEIC[v].cons; if(!custoKm().set) cfg.desg=VEIC[v].desg; } saveCfg(); toast("Consumo e desgaste ajustados para "+e.target.selectedOptions[0].text.toLowerCase()); });
 document.querySelectorAll("#aTema button").forEach(b=>b.onclick=()=>{ cfg.tema=b.dataset.v; saveCfg(); });
+let verTaps=0; $("#ver").onclick=()=>{ verTaps++; clearTimeout(verTaps.t); setTimeout(()=>verTaps=0,2500); if(verTaps>=5){ verTaps=0; Conta.openServidor(); } };
+$("#gateRetry").onclick=()=>Conta.refresh();
 $("#btnExport").onclick=exportCsv; $("#btnBackup").onclick=backup; $("#btnRestore").onclick=restore;
 $("#alGrant").onclick=()=>nat("openAlertAccess");
 $("#ovGrant").onclick=()=>nat("openOverlayPermission");
@@ -1100,6 +1247,12 @@ $("#alOn").onchange=e=>{ cfg.alertOn=e.target.checked; saveCfg(); };
 $("#alSecs").onchange=e=>{ cfg.alertSecs=+e.target.value; saveCfg(); };
 $("#alWords").onchange=e=>{ cfg.alertWords=e.target.value; saveCfg(); };
 $("#alApps").addEventListener("change",e=>{ const c=e.target.closest("[data-app]"); if(!c) return; const s=new Set(cfg.alertApps||[]); c.checked?s.add(c.dataset.app):s.delete(c.dataset.app); cfg.alertApps=[...s]; saveCfg(); });
+$("#cardTest").onclick=()=>{ pushAlertCfg(); const r=nat("testCard");
+  if(r==="permissao"){ toast("Falta liberar Aparecer sobre outros apps"); nat("openOverlayPermission"); return; }
+  toast("Cartão de teste enviado. Ele deve aparecer no topo da tela.");
+  setTimeout(()=>{ const s=natJ("alertStatus")||{}; renderDiag(s); if(s.cardRes&&s.cardRes!=="mostrado") toast("O cartão não apareceu: "+s.cardRes); },900); };
+$("#diag").addEventListener("click",e=>{ const b=e.target.closest("[data-fix]"); if(b) nat(b.dataset.fix); });
+$("#logClear").onclick=()=>{ nat("clearLog"); renderAlert(); };
 $("#alTest").onclick=()=>{ pushAlertCfg(); nat("testAlert"); toast("Alarme de teste disparado"); };
 window.addEventListener("hashchange",onHash);
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) window.__rota("resume"); });
@@ -1107,6 +1260,6 @@ document.addEventListener("visibilitychange",()=>{ if(!document.hidden) window._
 /* ================= início ================= */
 items=lsGet("rp_items",[]); cfg={...DEF_CFG,...lsGet("rp_cfg",{})}; hRef=today();
 $("#ver").textContent="Rota Paga · versão "+(nat("version")||"web");
-applyTema(); pushAlertCfg(); Trip.boot(); renderAll(); onHash();
+applyTema(); pushAlertCfg(); Trip.boot(); renderAll(); onHash(); Conta.ui(); Conta.refresh();
 setTimeout(()=>window.__rota("resume"),300);
 })();

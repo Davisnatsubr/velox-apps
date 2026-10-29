@@ -38,13 +38,17 @@ class RouteListener : NotificationListenerService() {
         if (!sbn.isOngoing) Store.recordSeen(this, pkg, label)
 
         val c = Store.cfg(this)
-        if (!c.optBoolean("enabled", true)) return
-        val apps = Store.apps(c)
-        if (apps.isNotEmpty() && pkg !in apps) return
         val words = Store.keywords(c)
         val t = Calc.norm(full)
-        if (words.isEmpty() || words.none { t.contains(it) }) return
-        if (Store.isDuplicate(this, full)) return
+        val hit = words.isNotEmpty() && words.any { t.contains(it) }
+        // notificações fixas (música, GPS...) só entram no registro se tiverem palavra-chave
+        val log = { res: String -> if (!sbn.isOngoing || hit) Store.log(this, label, full, res) }
+        if (!c.optBoolean("enabled", true)) { log("alerta desligado"); return }
+        val apps = Store.apps(c)
+        if (apps.isNotEmpty() && pkg !in apps) { log("app não marcado em \"Só destes apps\""); return }
+        if (!hit) { log("sem palavra-chave"); return }
+        if (Store.isDuplicate(this, full)) { log("repetida, ignorada"); return }
+        log("ALERTA disparado")
         Alert.fire(this, full, label)
     }
 

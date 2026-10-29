@@ -154,7 +154,7 @@ object Overlay {
 
     fun showCard(ctx0: Context, o: Oferta, app: String) {
         val ctx = ctx0.applicationContext
-        if (!can(ctx)) return
+        if (!can(ctx)) { Store.setCardRes(ctx, "sem permissão de aparecer sobre outros apps"); return }
         h.post {
             hideCard()
             val r = compute(ctx, o)
@@ -185,7 +185,12 @@ object Overlay {
                 y = Store.p(ctx).getInt("card_y", dp(ctx, 90))
             }
             draggable(ctx, wrap, p, "card", false) { hideCard(); Alert.stop(ctx); openApp(ctx) }
-            try { wm(ctx).addView(wrap, p); card = wrap } catch (_: Exception) { }
+            try {
+                wm(ctx).addView(wrap, p); card = wrap
+                Store.setCardRes(ctx, "mostrado")
+            } catch (e: Exception) {
+                Store.setCardRes(ctx, "o Android recusou: " + (e.message ?: e.javaClass.simpleName))
+            }
             h.postDelayed(hideCardRun, 45_000L)
         }
     }

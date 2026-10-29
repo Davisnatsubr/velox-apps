@@ -44,6 +44,8 @@
     <span><b>Iniciar cronômetro</b><small>Conta o tempo e os km pelo GPS e calcula quanto a rota está rendendo</small></span>
   </button>
 
+  <div class="aviso" id="avisoBox" hidden></div>
+
   <section class="stack">
     <div class="sec-h"><h2>Rotas agendadas</h2><button class="link" type="button" id="agNew">+ Agendar</button></div>
     <div id="agList" class="stack8"></div>
@@ -177,9 +179,21 @@
       <div class="r col"><span class="k">Palavras que disparam o alarme</span><input class="inp" id="alWords" autocomplete="off"><span class="t2">Separe por vírgula. Basta uma aparecer na notificação.</span></div>
       <div class="r col"><span class="k">Só destes apps</span><div id="alApps" class="chips"></div><span class="t2" id="alAppsHint">Os apps aparecem aqui depois que mandam alguma notificação. Sem nenhum marcado, vale para todos.</span></div>
     </div>
-    <button class="btn ghost" type="button" id="alTest">Testar alarme</button>
+    <div class="btns"><button class="btn ghost" type="button" id="alTest">Testar alarme</button><button class="btn ghost" type="button" id="cardTest">Testar cartão</button></div>
+    <div class="panel stack" id="diag">
+      <div class="sec-h"><h2>Por que não aparece?</h2></div>
+      <div id="diagList" class="stack8"></div>
+      <div id="diagBrand"></div>
+    </div>
+    <details class="panel guide" id="logBox">
+      <summary><div><h2>Notificações lidas</h2><p class="sub">As últimas que chegaram e o que o app fez com cada uma</p></div></summary>
+      <div id="logList" class="stack8" style="margin-top:12px"></div>
+      <button class="link" type="button" id="logClear">Limpar lista</button>
+    </details>
     <p class="sub">O alarme toca mesmo com o celular no silencioso. A notificação já mostra o R$ por pacote. Aceitar a rota continua sendo com você no app de entregas.</p>
   </div>
+
+  <div class="set" id="contaSet"><small>Conta</small><div class="rows" id="contaBox"></div></div>
 
   <div class="set"><small>Perfil</small><div class="rows">
     <label class="r"><span class="ico" data-i="user"></span><span class="k">Seu nome</span><input class="inl" id="a_nome" placeholder="Motorista" autocomplete="off"></label>
@@ -239,10 +253,21 @@
   <button class="tab" type="button" data-tab="ajustes"><span data-i="gear"></span>Ajustes</button>
 </div></nav>
 
+<div class="gate" id="gate" hidden>
+  <div class="gate-in">
+    <div class="brand">Rota Paga</div>
+    <h1 id="gateTitle">Entre na sua conta</h1>
+    <p class="sub" id="gateMsg"></p>
+    <div id="gateForm"></div>
+    <button class="link" type="button" id="gateRetry">Já resolvi, tentar de novo</button>
+  </div>
+</div>
+
 <div id="sheetRoot"></div>
 <div class="toast" id="toast" hidden></div>
 
 <script src="vendor/leaflet.js"></script>
+<script src="config.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

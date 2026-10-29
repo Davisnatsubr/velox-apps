@@ -132,6 +132,8 @@ class MainActivity : ComponentActivity() {
             databaseEnabled = true
             setGeolocationEnabled(true)
             allowFileAccess = false
+            // permite servidor de contas em http (sem certificado). O ideal é https.
+            mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             textZoom = 100
             userAgentString = userAgentString + " RotaPaga/" + BuildConfig.VERSION_NAME
         }
@@ -197,6 +199,11 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         ref = WeakReference(this)
         Overlay.syncBubble(this)
+        // alguns celulares (Xiaomi, Samsung) desligam o leitor de notificações; pede para religar
+        try {
+            if (androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName))
+                android.service.notification.NotificationListenerService.requestRebind(android.content.ComponentName(this, RouteListener::class.java))
+        } catch (_: Exception) { }
         js("window.__rota&&window.__rota('resume')")
     }
 
