@@ -387,9 +387,10 @@ const Mapa=(()=>{
   function draw(){
     if(!m) return;
     layer.clearLayers();
-    const list=stopsToday();
+    const list=stopsToday(), pv=Rotas.preview, nDone=list.filter(s=>(s.status||"pendente")!=="pendente").length;
     list.forEach((s,i)=>{ if(!s.lat) return; const st=s.status||"pendente";
-      L.marker([s.lat,s.lon],{icon:icon("pinmk"+(st==="entregue"?" done":st==="falha"?" fail":""),st==="entregue"?"✓":st==="falha"?"✕":i+1),title:s.endereco})
+      const n=pv&&pv.includes(s.id)?nDone+pv.indexOf(s.id)+1:i+1; /* numeração da rota que está sendo comparada */
+      L.marker([s.lat,s.lon],{icon:icon("pinmk"+(st==="entregue"?" done":st==="falha"?" fail":""),st==="entregue"?"✓":st==="falha"?"✕":n),title:s.endereco})
         .on("click",()=>openForm("parada",items.find(x=>x.id===s.id))).addTo(layer); });
     if(cfg.trabalhoLL){ L.marker(cfg.trabalhoLL,{icon:L.divIcon({className:"",html:'<div class="cdmk">CD</div>',iconSize:[26,26],iconAnchor:[13,13]})}).addTo(layer); }
     const st=Trip.st;
@@ -466,7 +467,7 @@ const Rotas=(()=>{
       out.forEach((o,i)=>o.color=C[i%3]);
       const minKm=Math.min(...out.map(o=>o.km)), minMin=Math.min(...out.map(o=>o.min));
       out.forEach(o=>{ o.tags=[]; if(out.length>1&&o.km===minKm) o.tags.push("Mais curta"); if(out.length>1&&o.min===minMin) o.tags.push("Mais rápida"); });
-      opts=out; sel=0; renderCards(); Mapa.drawRoutes(opts,sel); Mapa.fit();
+      opts=out; sel=0; renderCards(); Mapa.drawRoutes(opts,sel); Mapa.draw(); Mapa.fit();
     }catch(e){ toast("Não consegui calcular. Confira a internet e tente de novo."); }
     finally{ loading=false; $("#calcRoutes").disabled=false; $("#calcRoutes").textContent=opts.length?"Recalcular":"Calcular rotas"; }
   }
@@ -483,7 +484,7 @@ const Rotas=(()=>{
     box.querySelectorAll("[data-ropt]").forEach(b=>b.onclick=()=>select(+b.dataset.ropt));
     if(opts.length){ $("#useRoute").onclick=use; $("#navRoute").onclick=()=>{ use(true); const pend=stopsToday().filter(s=>(s.status||"pendente")==="pendente"); openExt(cfg.nav==="waze"?navLink(pend[0]):gmapsRoute(pend,from)); }; }
   }
-  function select(i){ sel=i; renderCards(); Mapa.drawRoutes(opts,sel); }
+  function select(i){ sel=i; renderCards(); Mapa.drawRoutes(opts,sel); Mapa.draw(); }
   function use(quiet){
     const o=opts[sel]; if(!o) return;
     const list=stopsToday(); const rest=list.filter(s=>!o.ordem.includes(s.id));
@@ -495,7 +496,7 @@ const Rotas=(()=>{
     renderAll(); if(quiet!==true) toast("Paradas na ordem de \""+o.nome.toLowerCase()+"\"");
   }
   function reset(){ opts=[]; Mapa.clearRoutes(); }
-  return {calc,renderCards,select,reset,chosen:lsGet("rp_chosen",null)};
+  return {calc,renderCards,select,reset,chosen:lsGet("rp_chosen",null),get preview(){ return opts.length&&opts[sel]?opts[sel].ordem:null; }};
 })();
 
 /* ---------- cronômetro da rota ---------- */
@@ -545,7 +546,7 @@ const Trip=(()=>{
     const comb=cfg.cons?km/cfg.cons*cfg.gas:0;
     const list=stopsToday(), tot=list.reduce((a,s)=>a+num(s.pacotes),0), dn=list.filter(s=>s.status==="entregue").reduce((a,s)=>a+num(s.pacotes),0);
     const pace=h>0.05&&dn?dn/h:null;
-    return {h,km,v,p,comb,lucro:v-comb,porHora:h>0.02&&v?v/h:null,lucroHora:h>0.02&&v?(v-comb)/h:null,porKm:km>0.3&&v?v/km:null,porPct:p?v/p:null,tot,dn,pace,eta:pace&&tot>dn?(tot-dn)/pace*60:null};
+    return {h,km,v,p,comb,lucro:v-comb,porHora:h>0.02&&v?v/h:null,lucroHora:h>0.02&&v?(v-comb)/h:null,porKm:km>=1&&v?v/km:null,porPct:p?v/p:null,tot,dn,pace,eta:pace&&tot>dn?(tot-dn)/pace*60:null};
   }
   function ui(){
     const on=st.running; document.body.classList.toggle("trip-on",on); $("#tripbar").hidden=!on;
