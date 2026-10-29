@@ -13,3 +13,7 @@ ios/*.xcodeproj/
 ios/*.xcworkspace/
 ios/Podfile.lock
 ios/*/Info.plist
+rota-paga/app/src/main/assets/www/vendor/
+rota-paga/.gradle/
+rota-paga/app/build/
+rota-paga/build/

@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Rota Paga</title>
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<div class="tripbar" id="tripbar" hidden role="button" tabindex="0" aria-label="Cronômetro da rota">
+  <span class="rec" id="tbRec"></span>
+  <b class="num" id="tbTime">0:00:00</b>
+  <span class="num" id="tbKm">0,0 km</span>
+  <span class="num tb-r" id="tbRate">—</span>
+</div>
+
+<!-- INÍCIO -->
+<main class="view" id="v-inicio">
+  <div class="vh">
+    <div><div class="brand">Rota Paga</div><h1 id="hello">Olá, motorista</h1><p id="today"></p></div>
+    <button class="iconbtn" id="btnAlert" type="button">Colar rota</button>
+  </div>
+
+  <section class="panel detect" id="detect" hidden>
+    <div><h2 id="detTitle">Rota detectada</h2><p class="sub" id="detSub">Cole o texto da notificação. O app tira valor, pacotes, km e paradas.</p></div>
+    <textarea class="inp" id="detText" rows="3" placeholder="Ex.: Nova rota disponível · R$ 150,00 · 48 pacotes · 32 km · 20 paradas"></textarea>
+    <div class="found" id="detFound"></div>
+    <div class="calc" id="detCalc" hidden></div>
+    <div class="btns">
+      <button class="btn" id="detAgenda" type="button" disabled>Aceitei: agendar</button>
+      <button class="btn ghost" id="detTrip" type="button" disabled>Começar agora</button>
+    </div>
+    <div class="btns">
+      <button class="btn ghost" id="detGo" type="button" disabled>Lançar como entrega</button>
+      <button class="btn ghost" id="detClose" type="button">Fechar</button>
+    </div>
+  </section>
+
+  <button class="startcard" id="startCard" type="button">
+    <span class="ico big" data-i="timer"></span>
+    <span><b>Iniciar cronômetro</b><small>Conta o tempo e os km pelo GPS e calcula quanto a rota está rendendo</small></span>
+  </button>
+
+  <section class="stack">
+    <div class="sec-h"><h2>Rotas agendadas</h2><button class="link" type="button" id="agNew">+ Agendar</button></div>
+    <div id="agList" class="stack8"></div>
+  </section>
+
+  <section class="sign" aria-label="Resumo de hoje">
+    <div class="sign-in">
+      <div><div class="lbl">Lucro de hoje</div><div class="big num" id="sgNet">R$ 0,00</div></div>
+      <div class="sign-row num">
+        <div><b id="sgIn">R$ 0</b><small>Ganhos</small></div>
+        <div><b id="sgOut">R$ 0</b><small>Despesas</small></div>
+        <div><b id="sgPkg">0</b><small>Pacotes</small></div>
+        <div><b id="sgPct">—</b><small>R$/pacote</small></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel chart">
+    <div class="sec-h"><span class="sub strong">Lucro do mês</span><span class="sub" id="mLbl"></span></div>
+    <div class="mtot num" id="mTot">R$ 0,00</div>
+    <div id="mChart"></div>
+    <div class="axis num" id="mAxis"></div>
+  </section>
+
+  <section class="stack">
+    <div class="sec-h"><h2>Próximas paradas</h2><button class="link" type="button" data-go="rota">Ver rota</button></div>
+    <div id="nextStops" class="stack8"></div>
+  </section>
+
+  <section class="stack">
+    <div class="sec-h"><h2>Últimos lançamentos</h2><button class="link" type="button" data-go="historico">Ver tudo</button></div>
+    <div id="lastL" class="stack8"></div>
+  </section>
+</main>
+
+<!-- ROTA -->
+<main class="view" id="v-rota" hidden>
+  <div class="mapwrap">
+    <div id="map" aria-label="Mapa da rota"></div>
+    <div class="mapoff" id="mapOff" hidden>O mapa precisa de internet. As paradas continuam funcionando.</div>
+    <div class="mapbtns">
+      <button type="button" class="mbtn" id="mLocate" aria-label="Minha localização"><span data-i="target"></span></button>
+      <button type="button" class="mbtn" id="mFit" aria-label="Ver todas as paradas"><span data-i="expand"></span></button>
+    </div>
+    <div class="pickhint" id="pickHint" hidden>Toque no mapa onde fica a parada <button type="button" id="pickCancel">Cancelar</button></div>
+  </div>
+
+  <div class="strip num">
+    <div><b id="rsPar">0</b><small>paradas</small></div>
+    <div><b id="rsPkg">0</b><small>pacotes</small></div>
+    <div><b id="rsDone">0</b><small>entregues</small></div>
+    <div><b id="rsTime">—</b><small>tempo</small></div>
+  </div>
+
+  <form class="panel stack" id="addStop" novalidate>
+    <div class="addrow">
+      <input class="inp" id="stAddr" placeholder="Endereço da parada" autocomplete="off" aria-label="Endereço">
+      <input class="inp pk" id="stPkg" inputmode="numeric" placeholder="Pct" aria-label="Pacotes">
+    </div>
+    <div class="btns">
+      <button class="btn" type="submit">Adicionar</button>
+      <button class="btn ghost" type="button" id="btnPasteList">Colar lista</button>
+      <button class="btn ghost" type="button" id="btnPick" aria-label="Marcar no mapa"><span data-i="pin"></span></button>
+    </div>
+    <div id="pasteBox" class="stack" hidden>
+      <textarea class="inp" id="pasteText" rows="5" placeholder="Um endereço por linha. Pode pôr os pacotes no fim: Rua das Flores, 120 - 3"></textarea>
+      <button class="btn ghost" type="button" id="pasteAdd">Adicionar todas</button>
+    </div>
+  </form>
+
+  <section class="panel stack" id="routeBox" hidden>
+    <div class="sec-h"><h2>Escolher rota</h2><span class="sub" id="routeFrom"></span></div>
+    <div id="routeOpts" class="stack8"></div>
+    <button class="btn" type="button" id="calcRoutes">Calcular rotas</button>
+  </section>
+
+  <div id="stops" class="stack8"></div>
+
+  <div class="btns" id="stopActions" hidden>
+    <button class="btn" type="button" id="finishRoute">Finalizar e lançar</button>
+    <button class="btn ghost" type="button" id="clearDone">Limpar feitas</button>
+  </div>
+</main>
+
+<!-- HISTÓRICO -->
+<main class="view" id="v-historico" hidden>
+  <div class="vh"><div><div class="brand">Financeiro</div><h1>Histórico</h1></div></div>
+  <div class="seg" id="hSeg" role="group" aria-label="Período">
+    <button type="button" data-p="dia">Dia</button><button type="button" data-p="semana">Semana</button><button type="button" data-p="mes">Mês</button><button type="button" data-p="ano">Ano</button>
+  </div>
+  <div class="pnav"><button type="button" id="hPrev" aria-label="Período anterior">‹</button><b id="hLbl"></b><button type="button" id="hNext" aria-label="Próximo período">›</button></div>
+
+  <section class="sign"><div class="sign-in">
+    <div><div class="lbl">Lucro do período</div><div class="big num" id="hNet">R$ 0,00</div></div>
+    <div class="sign-row three num">
+      <div><b id="hIn">R$ 0</b><small>Ganhos</small></div>
+      <div><b id="hOut">R$ 0</b><small>Despesas</small></div>
+      <div><b id="hKm">0 km</b><small>Rodados</small></div>
+    </div>
+  </div></section>
+
+  <div class="stats num" id="hStats"></div>
+  <div class="rows num" id="hPerf"></div>
+
+  <div class="seg" id="hTab" role="group" aria-label="Lista">
+    <button type="button" data-t="lanc">Lançamentos</button><button type="button" data-t="pnr">PNR</button><button type="button" data-t="fotos">Comprovantes</button>
+  </div>
+  <div id="hList" class="stack"></div>
+</main>
+
+<!-- AJUSTES -->
+<main class="view" id="v-ajustes" hidden>
+  <div class="vh"><div><div class="brand">Rota Paga</div><h1>Ajustes</h1></div></div>
+
+  <div class="set" id="alertSet" hidden><small>Alerta de rota</small>
+    <div class="rows">
+      <div class="r"><span class="ico" data-i="bell"></span><span class="k">Acesso às notificações<span class="t2" id="alAccess"></span></span><button type="button" class="link" id="alGrant">Permitir</button></div>
+      <label class="r"><span class="ico" data-i="bell"></span><span class="k">Tocar alarme quando chegar rota</span><input type="checkbox" class="sw" id="alOn"></label>
+      <div class="r"><span class="ico" data-i="expand"></span><span class="k">Aparecer sobre outros apps<span class="t2" id="ovAccess"></span></span><button type="button" class="link" id="ovGrant">Permitir</button></div>
+      <label class="r"><span class="ico" data-i="calc"></span><span class="k">Cartão por cima do Mercado Livre<span class="t2">Quando chega a rota, mostra R$/pacote, R$/km e lucro flutuando por cima do app</span></span><input type="checkbox" class="sw" id="ovOn"></label>
+      <label class="r"><span class="ico" data-i="coin"></span><span class="k">Bolha de cálculo rápido<span class="t2">Um botão flutuante: toque, digite valor, pacotes e km da oferta e veja se compensa sem sair do app de entregas</span></span><input type="checkbox" class="sw" id="bbOn"></label>
+      <label class="r"><span class="ico" data-i="clock"></span><span class="k">Duração do alarme</span><select id="alSecs"><option value="5">5 segundos</option><option value="10">10 segundos</option><option value="20">20 segundos</option><option value="30">30 segundos</option></select></label>
+      <div class="r col"><span class="k">Palavras que disparam o alarme</span><input class="inp" id="alWords" autocomplete="off"><span class="t2">Separe por vírgula. Basta uma aparecer na notificação.</span></div>
+      <div class="r col"><span class="k">Só destes apps</span><div id="alApps" class="chips"></div><span class="t2" id="alAppsHint">Os apps aparecem aqui depois que mandam alguma notificação. Sem nenhum marcado, vale para todos.</span></div>
+    </div>
+    <button class="btn ghost" type="button" id="alTest">Testar alarme</button>
+    <p class="sub">O alarme toca mesmo com o celular no silencioso. A notificação já mostra o R$ por pacote. Aceitar a rota continua sendo com você no app de entregas.</p>
+  </div>
+
+  <div class="set"><small>Perfil</small><div class="rows">
+    <label class="r"><span class="ico" data-i="user"></span><span class="k">Seu nome</span><input class="inl" id="a_nome" placeholder="Motorista" autocomplete="off"></label>
+  </div></div>
+
+  <div class="set"><small>Preferências de rota</small><div class="rows">
+    <label class="r"><span class="ico" data-i="nav"></span><span class="k">App de navegação</span><select id="a_nav"><option value="gmaps">Google Maps</option><option value="waze">Waze</option></select></label>
+    <label class="r"><span class="ico" data-i="clock"></span><span class="k">Tempo médio por parada</span><select id="a_tParada"></select></label>
+    <label class="r"><span class="ico" data-i="pin"></span><span class="k">Cidade base</span><input class="inl" id="a_cidade" placeholder="Ex.: Teresina - PI" autocomplete="off"></label>
+  </div><p class="sub pad">A cidade base ajuda o mapa a achar endereços curtos.</p></div>
+
+  <div class="set"><small>Veículo</small><div class="rows">
+    <label class="r"><span class="ico" data-i="truck"></span><span class="k">Tipo de veículo</span><select id="a_veiculo"><option value="bike">Bicicleta</option><option value="moto">Moto</option><option value="carro">Carro</option><option value="util">Utilitário</option><option value="caminhao">Caminhão</option></select></label>
+    <label class="r"><span class="ico" data-i="gauge"></span><span class="k">Consumo (km/L)</span><input class="inl" id="a_cons" inputmode="decimal"></label>
+    <label class="r"><span class="ico" data-i="fuel"></span><span class="k">Combustível (R$/L)</span><input class="inl" id="a_gas" inputmode="decimal"></label>
+    <label class="r"><span class="ico" data-i="wrench"></span><span class="k">Desgaste (R$/km)</span><input class="inl" id="a_desg" inputmode="decimal"></label>
+  </div><p class="sub pad">O preço do combustível se atualiza sozinho quando você lança um abastecimento.</p></div>
+
+  <div class="set"><small>Semáforo</small><div class="rows">
+    <div class="r sem"><span class="ico" data-i="box"></span><span class="k">Por pacote</span><span class="lim bad">ruim abaixo de<input id="a_ruimPct" inputmode="decimal"></span><span class="lim good">bom a partir de<input id="a_metaPct" inputmode="decimal"></span></div>
+    <div class="r sem"><span class="ico" data-i="route"></span><span class="k">Por km</span><span class="lim bad">ruim abaixo de<input id="a_ruimKm" inputmode="decimal"></span><span class="lim good">bom a partir de<input id="a_metaKm" inputmode="decimal"></span></div>
+    <div class="r sem"><span class="ico" data-i="clock"></span><span class="k">Por hora</span><span class="lim bad">ruim abaixo de<input id="a_ruimHora" inputmode="decimal"></span><span class="lim good">bom a partir de<input id="a_metaHora" inputmode="decimal"></span></div>
+  </div><p class="sub pad">Abaixo do "ruim" fica vermelho, a partir do "bom" fica verde, no meio fica amarelo. Vale para o cálculo, o cartão por cima do Mercado Livre e o histórico.</p></div>
+
+  <div class="set"><small>Locais</small><div class="rows">
+    <label class="r"><span class="ico" data-i="home"></span><span class="k">Casa</span><input class="inl" id="a_casa" placeholder="Definir" autocomplete="off"></label>
+    <label class="r"><span class="ico" data-i="case"></span><span class="k">CD / Trabalho</span><input class="inl" id="a_trabalho" placeholder="Definir" autocomplete="off"></label>
+  </div><p class="sub pad">Sem GPS, o cálculo de rota parte do CD.</p></div>
+
+  <div class="set"><small>Aparência</small>
+    <div class="seg" id="aTema" role="group" aria-label="Tema"><button type="button" data-v="sistema">Sistema</button><button type="button" data-v="claro">Claro</button><button type="button" data-v="escuro">Escuro</button></div>
+  </div>
+
+  <div class="set"><small>Dados</small><div class="rows">
+    <button class="r" type="button" id="btnExport"><span class="ico" data-i="sheet"></span><span class="k">Exportar planilha (CSV)</span><span class="v muted">›</span></button>
+    <button class="r" type="button" id="btnBackup"><span class="ico" data-i="up"></span><span class="k">Fazer backup</span><span class="v muted">›</span></button>
+    <button class="r" type="button" id="btnRestore"><span class="ico" data-i="down"></span><span class="k">Restaurar backup</span><span class="v muted">›</span></button>
+  </div><p class="sub pad">Os dados ficam só neste celular. Faça backup de vez em quando e guarde no Drive ou no WhatsApp.</p></div>
+
+  <details class="panel guide" id="macroGuide">
+    <summary><div><h2>Alerta de rota pelo navegador</h2><p class="sub">Use o MacroDroid enquanto não instala o app</p></div></summary>
+    <ol>
+      <li>Instale o <b>MacroDroid</b> e dê a ele acesso às notificações.</li>
+      <li>Gatilho: <b>Notificação recebida</b> do app de entregas, texto contém <code>rota</code>.</li>
+      <li>Ações: <b>Tocar alarme</b>, <b>Área de transferência</b> com <code>[notification]</code> e <b>Abrir site</b> com este endereço terminado em <code>#alerta</code>.</li>
+    </ol>
+  </details>
+
+  <p class="ver" id="ver">Rota Paga</p>
+</main>
+
+<nav class="tabbar" aria-label="Seções"><div class="row">
+  <button class="tab" type="button" data-tab="inicio"><span data-i="home"></span>Início</button>
+  <button class="tab" type="button" data-tab="rota"><span data-i="map"></span>Rota</button>
+  <button class="fab" type="button" id="fab" aria-label="Novo"><span data-i="plus"></span></button>
+  <button class="tab" type="button" data-tab="historico"><span data-i="list"></span>Histórico</button>
+  <button class="tab" type="button" data-tab="ajustes"><span data-i="gear"></span>Ajustes</button>
+</div></nav>
+
+<div id="sheetRoot"></div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="vendor/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
