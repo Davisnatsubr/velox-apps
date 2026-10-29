@@ -1,0 +1,4 @@
+paradas: [["Rua Breno Teodomiro de Carvalho, Teresina", -5.1034114, "ok"], ["Avenida José Francisco de Almeida Neto, Teresina", -5.1055206, "ok"], ["Ponto A", -5.0905, "ok"], ["Ponto B", -5.0825, "ok"], ["Ponto C", -5.095, "ok"], ["Ponto D", -5.079, "ok"]]
+opcoes: Ordem otimizada | 18min dirigindo + 18min nas paradas · custo R$ 9,91 | MAIS CURTA · MAIS RÁPIDA | 12,1 km | 36min | Na ordem da lista | 30min dirigindo + 18min nas paradas · custo R$ 15,95 | 19,4 km | 48min | USAR ESTA ROTA | NAVEGAR
+trip: 0:00:19 | 0,3 km · rodando ·  | GPS ok | 0 de 17 pacotes entregues | RENDENDO AGORA | Editar valor | R$/HORA | — | R$/KM | — | R$/PACOTE | R$ 3,13 | CUSTO DO KM | R$ 0,27 | LUCRO REAL | R$ 149,73 | LUCRO/HORA | — | Valor R$ 150,00 · 48 pacotes · custo = 0,3 km × R$ 0,82/km
+erros: []
