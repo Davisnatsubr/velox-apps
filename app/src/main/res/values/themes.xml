@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Renovacoes" parent="android:Theme.Material.Light.NoActionBar">
+    <style name="Theme.Renovacoes" parent="android:Theme.Material.NoActionBar">
         <item name="android:colorPrimary">@color/marca</item>
         <item name="android:colorAccent">@color/marca</item>
-        <item name="android:statusBarColor">@color/marca</item>
+        <item name="android:statusBarColor">@color/fundo</item>
         <item name="android:navigationBarColor">@color/fundo</item>
         <item name="android:windowBackground">@color/fundo</item>
     </style>

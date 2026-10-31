@@ -42,8 +42,8 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val raiz = FrameLayout(this)
-        web = WebView(this)
+        val raiz = FrameLayout(this).apply { setBackgroundColor(0xFF0F1712.toInt()) }
+        web = WebView(this).apply { setBackgroundColor(0xFF0F1712.toInt()) }
         barra = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
             visibility = View.GONE
@@ -78,7 +78,9 @@ class MainActivity : Activity() {
                 return true
             }
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) { barra.visibility = View.VISIBLE }
+            override fun onPageCommitVisible(view: WebView, url: String) { forcarEscuro(view) }
             override fun onPageFinished(view: WebView, url: String) {
+                forcarEscuro(view)
                 barra.visibility = View.GONE
                 CookieManager.getInstance().flush()
             }
@@ -122,6 +124,11 @@ class MainActivity : Activity() {
         super.onNewIntent(i)
         val frag = i.data?.fragment
         if (!frag.isNullOrBlank()) web.evaluateJavascript("location.hash='#$frag'", null)
+    }
+
+    // O app é sempre escuro: avisa o painel para usar o tema escuro
+    private fun forcarEscuro(view: WebView) {
+        view.evaluateJavascript("document.documentElement.setAttribute('data-theme','dark')", null)
     }
 
     private fun enderecoSalvo(): String? = prefs.getString("url", null)
