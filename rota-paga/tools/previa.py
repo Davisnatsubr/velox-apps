@@ -40,7 +40,7 @@ cfg = {"nome": "Davi", "cidade": "Teresina - PI"}
 # diagnóstico do servidor de contas configurado no app (o que o app recebe ao abrir)
 import re, urllib.request
 try:
-    srv_url = re.search(r'ROTA_SERVIDOR\s*=\s*"([^"]*)"', open(os.path.join(www, "config.js")).read()).group(1)
+    srv_url = re.findall(r'^window\.ROTA_SERVIDOR\s*=\s*"([^"]*)"', open(os.path.join(www, "config.js")).read(), re.M)[-1]
 except Exception:
     srv_url = ""
 if srv_url:
