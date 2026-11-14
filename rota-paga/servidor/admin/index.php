@@ -147,12 +147,19 @@ if (post_ok()) {
             if ($s === 'bloqueado') $pdo->prepare('DELETE FROM sessoes WHERE usuario_id = ?')->execute([$uid]);
             evento($uid, $s === 'bloqueado' ? 'bloqueio' : 'liberado', "por $admin");
             voltar($_POST['volta'] ?? 'usuarios', $s === 'bloqueado' ? 'Usuário bloqueado e desconectado.' : 'Usuário liberado.');
+        case 'senha_definir':
+            $nova = trim((string)($_POST['nova'] ?? ''));
+            if (strlen($nova) < 6) voltar('usuario&id=' . $uid, 'A senha precisa ter pelo menos 6 caracteres.');
+            $pdo->prepare('UPDATE usuarios SET senha_hash = ? WHERE id = ?')->execute([password_hash($nova, PASSWORD_DEFAULT), $uid]);
+            $pdo->prepare('DELETE FROM sessoes WHERE usuario_id = ?')->execute([$uid]);
+            evento($uid, 'senha', "definida por $admin");
+            voltar('usuario&id=' . $uid, 'Senha trocada para: ' . $nova . ' — entre no app com ela.');
         case 'senha_reset':
             $nova = substr(str_replace(['+', '/', '='], '', base64_encode(random_bytes(9))), 0, 10);
             $pdo->prepare('UPDATE usuarios SET senha_hash = ? WHERE id = ?')->execute([password_hash($nova, PASSWORD_DEFAULT), $uid]);
             $pdo->prepare('DELETE FROM sessoes WHERE usuario_id = ?')->execute([$uid]);
             evento($uid, 'senha', "redefinida por $admin");
-            voltar('usuario&id=' . $uid, 'Senha nova: ' . $nova . ' — passe para o usuário. Ela não aparece de novo.');
+            voltar('usuario&id=' . $uid, 'Senha nova gerada: ' . $nova . ' — anote agora e passe para o usuário. Ela não aparece de novo.');
         case 'sessoes_sair':
             $pdo->prepare('DELETE FROM sessoes WHERE usuario_id = ?')->execute([$uid]);
             evento($uid, 'sessoes', "encerradas por $admin");
@@ -307,7 +314,9 @@ if ($p === 'usuario') {
     $dd = dados_usuario($id);
     if ($dd) { $rm = resumo_mes($dd['json']);
         $html .= '<h2>Faturamento do mês</h2><p><b>' . brl($rm['bruto']) . '</b> de ganho bruto · lucro ' . brl($rm['lucro']) . ' · ' . $rm['rotas'] . ' rotas · ' . $rm['pacotes'] . ' pacotes</p><p><a class="btn ghost" href="?p=faturamento&id=' . $id . '" style="text-decoration:none;display:inline-block">Ver faturamento completo</a></p>'; }
-    $html .= '<h2>Senha</h2><form method="post">' . $hid . '<input type="hidden" name="acao" value="senha_reset"><button class="btn ghost">Gerar senha nova</button></form>';
+    $html .= '<h2>Senha</h2><p class="muted">Ninguém consegue ver a senha atual. Escolha uma nova (o usuário sai dos aparelhos e entra com ela).</p>'
+        . '<form method="post" class="inline">' . $hid . '<input type="hidden" name="acao" value="senha_definir"><input name="nova" placeholder="Senha nova (mínimo 6)" autocomplete="off" minlength="6" required><button class="btn">Salvar senha</button></form>'
+        . '<form method="post" style="margin-top:8px">' . $hid . '<input type="hidden" name="acao" value="senha_reset"><button class="btn ghost">Gerar uma aleatória</button></form>';
     $html .= '<h2>Excluir</h2><form method="post" class="inline">' . $hid . '<input type="hidden" name="acao" value="excluir"><input name="confirma" placeholder="Digite EXCLUIR"><button class="btn danger">Excluir usuário</button></form></div></div>';
     $ev = db()->prepare('SELECT e.*, u.nome FROM eventos e LEFT JOIN usuarios u ON u.id = e.usuario_id WHERE e.usuario_id = ? ORDER BY e.id DESC LIMIT 50'); $ev->execute([$id]);
     $html .= '<h2>Histórico</h2>' . tabela_eventos($ev->fetchAll());
