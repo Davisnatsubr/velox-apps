@@ -1,0 +1,4 @@
+Velox Play 1.0.6
+- Ajustes de proporção para celular (em pé e deitado) e Android TV.
+- Melhorias de estabilidade.
+O Velox Play é apenas um reprodutor (player): não fornece nem vende conteúdo.
