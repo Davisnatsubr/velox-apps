@@ -37,6 +37,23 @@ items += [
 cfg = {"nome": "Davi", "cidade": "Teresina - PI"}
 
 # ~25 m a cada 1,3 s (uns 70 km/h), para passar no filtro de saltos impossíveis
+# diagnóstico do servidor de contas configurado no app (o que o app recebe ao abrir)
+import re, urllib.request
+try:
+    srv_url = re.search(r'ROTA_SERVIDOR\s*=\s*"([^"]*)"', open(os.path.join(www, "config.js")).read()).group(1)
+except Exception:
+    srv_url = ""
+if srv_url:
+    for acao in ("status", "registrar"):
+        try:
+            body = b"{}" if acao == "status" else json.dumps({"nome": "Teste CI", "email": "ci-%d@teste.invalid" % int(time.time()), "senha": "x"}).encode()
+            req = urllib.request.Request(srv_url + "?a=" + acao, data=body, headers={"Content-Type": "text/plain", "User-Agent": "Mozilla/5.0 (Linux; Android 14) RotaPaga/teste"})
+            r = urllib.request.urlopen(req, timeout=20); say("servidor", acao, r.status, r.read()[:500].decode("utf-8", "replace"))
+        except urllib.error.HTTPError as e:
+            say("servidor", acao, "HTTP", e.code, e.read()[:800].decode("utf-8", "replace"))
+        except Exception as e:
+            say("servidor", acao, "falhou:", repr(e))
+
 path = [(-5.0870 - i * 0.00016, -42.7530 + i * 0.00016) for i in range(14)]
 errs = []
 with sync_playwright() as pw:
@@ -46,6 +63,8 @@ with sync_playwright() as pw:
     pg = ctx.new_page()
     pg.on("console", lambda m: m.type == "error" and errs.append(m.text))
     pg.on("pageerror", lambda e: errs.append(str(e)))
+    # os prints não falam com o servidor de contas de verdade
+    if srv_url: pg.route(srv_url.split("/api/")[0] + "/**", lambda r: r.abort())
     pg.goto("http://127.0.0.1:8765/index.html")
     pg.evaluate("([i,c])=>{localStorage.setItem('rp_items',JSON.stringify(i));localStorage.setItem('rp_cfg',JSON.stringify(c))}", [items, cfg])
     pg.reload(); pg.wait_for_timeout(1200)
