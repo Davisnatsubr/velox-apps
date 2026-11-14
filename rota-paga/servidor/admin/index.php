@@ -321,7 +321,13 @@ if ($p === 'config') {
         . '<h2>Aviso no app</h2><label>Mensagem que aparece no topo do app (deixe vazio para não mostrar)<textarea name="aviso" rows="2" maxlength="300">' . h(cfg('aviso')) . '</textarea></label>'
         . '<button class="btn">Salvar</button></form>';
     $api = (empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off' ? 'http' : 'https') . '://' . ($_SERVER['HTTP_HOST'] ?? 'seu-dominio') . preg_replace('#/admin/?.*$#', '/api/', $_SERVER['REQUEST_URI'] ?? '/admin/');
-    $html .= '<div class="box wide"><h2>Endereço para colocar no app</h2><p class="muted">No app: Ajustes, toque 5 vezes na versão (lá embaixo) e cole este endereço. Ou me passe para eu deixar fixo no app.</p><code class="big">' . h($api) . '</code></div>';
+    $html .= '<div class="box wide"><h2>Endereço para colocar no app</h2><p class="muted">No app: Ajustes, toque 5 vezes na versão (lá embaixo) e cole este endereço. Ou me passe para eu deixar fixo no app.</p><code class="big">' . h($api) . '</code>'
+        . '<p><button class="btn ghost" type="button" id="apiTeste">Testar a API como o app faz</button></p><pre id="apiRes" class="muted" style="white-space:pre-wrap"></pre>'
+        . '<script>document.getElementById("apiTeste").onclick=async()=>{const o=document.getElementById("apiRes");o.textContent="Testando…";'
+        . 'try{const r=await fetch(' . json_encode($api) . '+"?a=status",{method:"POST",headers:{"Content-Type":"text/plain"},body:"{}"});const t=await r.text();'
+        . 'let j=null;try{j=JSON.parse(t)}catch(e){}'
+        . 'o.textContent=j&&j.ok?"Funcionando. Modo: "+j.modo+". O app consegue criar conta e entrar.":"Não funcionou (HTTP "+r.status+"). Resposta do servidor:\n"+t.slice(0,600);}'
+        . 'catch(e){o.textContent="Não conectou: "+e.message}};</script></div>';
 }
 
 if ($p === 'eventos') {
