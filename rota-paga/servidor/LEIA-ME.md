@@ -2,7 +2,7 @@
 
 PHP puro, sem nada para instalar. Serve em hospedagem comum (cPanel, Hostinger, HostGator) e em VPS.
 
-- **App** usa `api/`: criar conta, entrar, sair, trocar senha e backup na nuvem.
+- **App** usa `api/`: criar conta, entrar, sair, trocar senha, sincronização dos lançamentos entre celulares e backup.
 - **Você** usa `admin/`: painel para ver e gerenciar os usuários, inclusive o ganho de cada motorista.
 - **O motorista** usa `painel/`: o próprio faturamento no computador, entrando com a mesma conta do app.
 - **Banco:** SQLite por padrão, um arquivo em `dados/`. Não precisa criar banco. Também funciona com MySQL.
@@ -90,4 +90,4 @@ O motorista abre `https://seudominio.com.br/rotapaga/painel/` e entra com o e-ma
 - entregas por CD, com R$ por pacote e por km;
 - a lista de lançamentos, que dá para baixar em planilha ou imprimir.
 
-Os números vêm do backup que o app envia sozinho quando algo muda (no máximo a cada 2 minutos, com internet). No painel admin, a lista de usuários mostra o ganho do mês de cada um; clique no valor para ver o faturamento completo.
+Os números vêm da sincronização: cada lançamento vai para o servidor segundos depois de salvo (ou quando a internet voltar). Entrando na mesma conta em outro celular, tudo volta. No painel admin, a lista de usuários mostra o ganho do mês de cada um; clique no valor para ver o faturamento completo.

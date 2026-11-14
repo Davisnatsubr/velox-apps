@@ -338,3 +338,9 @@ body.gated .tabbar{display:none}
 /* lembretes */
 .r input.tm{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:6px 8px;font-size:15px;font-weight:600;color:var(--ink);width:auto}
 .r select+.sw,.r input.tm+.sw{margin-left:4px}
+
+/* sincronização */
+.syncinfo{margin:-8px 0 -6px;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.syncinfo::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.syncinfo.ok::before{background:var(--good)}.syncinfo.wait::before{background:var(--warn)}
+.syncinfo .link{font-size:13px;padding:0}

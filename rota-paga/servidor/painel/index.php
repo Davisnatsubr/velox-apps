@@ -40,8 +40,8 @@ if ($uid) { $st = db()->prepare('SELECT * FROM usuarios WHERE id = ?'); $st->exe
 if ($u && $u['status'] === 'bloqueado') { session_destroy(); $u = null; $erro = 'Sua conta está bloqueada.'; }
 
 if ($u) {
-    $st = db()->prepare('SELECT dados, atualizado_em FROM backups WHERE usuario_id = ?'); $st->execute([$u['id']]); $b = $st->fetch();
-    if ($b) { render_faturamento($b['dados'], $u['nome'], $b['atualizado_em'], '', '?p=sair'); exit; }
+    $b = dados_usuario((int)$u['id']);
+    if ($b) { render_faturamento($b['json'], $u['nome'], $b['em'], '', '?p=sair'); exit; }
 }
 
 /* tela de entrar (ou aviso de que ainda não há backup) */

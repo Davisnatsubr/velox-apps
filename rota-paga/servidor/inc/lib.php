@@ -35,6 +35,11 @@ function instalar(PDO $pdo): void {
         token_hash $txt PRIMARY KEY, usuario_id INT NOT NULL, aparelho_id $txt, aparelho_nome $txt,
         criado_em $txt NOT NULL, visto_em $txt)$eng");
     $pdo->exec("CREATE TABLE IF NOT EXISTS backups (usuario_id INT PRIMARY KEY, dados $big, tamanho INT, atualizado_em $txt)$eng");
+    // cada lançamento, parada, rota agendada... do app fica numa linha (sincroniza entre celulares da mesma conta)
+    $pdo->exec("CREATE TABLE IF NOT EXISTS registros (
+        usuario_id INT NOT NULL, item_id " . ($my ? 'VARCHAR(80)' : 'TEXT') . " NOT NULL, dados TEXT, alterado BIGINT NOT NULL,
+        excluido INT NOT NULL DEFAULT 0, rev INT NOT NULL, PRIMARY KEY (usuario_id, item_id))$eng");
+    try { $pdo->exec('CREATE INDEX idx_registros_rev ON registros (usuario_id, rev)'); } catch (Throwable $e) { /* já existe */ }
     $pdo->exec("CREATE TABLE IF NOT EXISTS admins (id $id, usuario $txt NOT NULL UNIQUE, senha_hash $txt NOT NULL, criado_em $txt)$eng");
     $pdo->exec("CREATE TABLE IF NOT EXISTS tentativas (ip $txt, quando INT)$eng");
     $pdo->exec("CREATE TABLE IF NOT EXISTS eventos (id $id, usuario_id INT, tipo $txt, detalhe TEXT, quando $txt)$eng");
@@ -94,6 +99,29 @@ function usuario_publico(array $u): array {
         'id' => (int)$u['id'], 'nome' => $u['nome'], 'email' => $u['email'], 'telefone' => $u['telefone'],
         'status' => $u['status'], 'plano' => $u['plano'], 'expira' => $u['expira'],
     ];
+}
+
+/**
+ * Todos os dados do app de um usuário, no formato do backup: {"items":[...],"cfg":{...}}.
+ * Vem dos registros sincronizados; se ainda não houver, do último backup.
+ */
+function dados_usuario(int $uid): ?array {
+    $st = db()->prepare('SELECT item_id, dados, alterado FROM registros WHERE usuario_id = ? AND excluido = 0');
+    $st->execute([$uid]);
+    $items = []; $cfg = null; $ultimo = 0;
+    foreach ($st as $r) {
+        $ultimo = max($ultimo, (int)$r['alterado']);
+        $d = json_decode((string)$r['dados'], true);
+        if (!is_array($d)) continue;
+        if ($r['item_id'] === '_cfg') $cfg = $d; else $items[] = $d;
+    }
+    if ($items || $cfg) {
+        return ['json' => json_encode(['items' => $items, 'cfg' => $cfg ?: new stdClass()], JSON_UNESCAPED_UNICODE), 'em' => $ultimo ? date('Y-m-d H:i:s', (int)($ultimo / 1000)) : null];
+    }
+    $st = db()->prepare('SELECT dados, atualizado_em FROM backups WHERE usuario_id = ?');
+    $st->execute([$uid]);
+    $b = $st->fetch();
+    return $b ? ['json' => $b['dados'], 'em' => $b['atualizado_em']] : null;
 }
 
 function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }

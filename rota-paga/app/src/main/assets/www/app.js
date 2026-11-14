@@ -190,7 +190,7 @@ function sums(from,to){
 }
 
 /* ================= gravação ================= */
-function persist(){ lsSet("rp_items",items); lsSet("rp_cfg",cfg); try{ Conta.autoBackup(); }catch(e){} syncLembretes(); }
+function persist(){ try{ Sync.diff(); }catch(e){} lsSet("rp_items",items); lsSet("rp_cfg",cfg); try{ Conta.autoBackup(); }catch(e){} syncLembretes(); }
 function saveDoc(o,quiet){ const i=items.findIndex(x=>x.id===o.id); if(i>=0) items[i]=o; else items.push(o); persist(); if(!quiet) renderAll(); }
 function delDoc(id){ const o=items.find(x=>x.id===id); if(o&&o.foto&&!items.some(x=>x!==o&&x.foto===o.foto)) Fotos.del(o.foto); items=items.filter(x=>x.id!==id); persist(); renderAll(); }
 function saveCfg(){ persist(); applyTema(); pushAlertCfg(); renderAll(); }
@@ -1052,7 +1052,7 @@ window.__rota=function(type,data){
     if(type==="route"){ nat("stopAlarm"); closeSheet(); showDetect(data&&data.text||String(data||""),data&&data.app); }
     else if(type==="trip"){ Trip.refresh(); Trip.ui(); Trip.loop(); renderInicio(); if(data==="denied") toast("Sem a localização, o cronômetro conta só o tempo."); }
     else if(type==="agenda"){ const a=items.find(x=>x.id===data); go("inicio"); if(a) openForm("agenda",a); }
-    else if(type==="resume"){ renderAlert(); renderLembretes(); Conta.refresh(); Trip.refresh(); Trip.ui(); Trip.loop(); const p=nat("takePendingRoute"); if(p){ const j=JSON.parse(p); showDetect(j.text,j.app); } }
+    else if(type==="resume"){ renderAlert(); renderLembretes(); Conta.refresh(); Sync.run(); Trip.refresh(); Trip.ui(); Trip.loop(); const p=nat("takePendingRoute"); if(p){ const j=JSON.parse(p); showDetect(j.text,j.app); } }
   }catch(e){}
 };
 window.__appBack=function(){
@@ -1158,7 +1158,7 @@ const Conta=(()=>{
       err.hidden=true; btn.disabled=true; btn.textContent="Aguarde…";
       try{
         const j=tab==="criar"?await call("registrar",{nome:v("Nome").trim(),email:v("Email").trim(),telefone:v("Tel"),senha:v("Senha")}):await call("entrar",{email:v("Email").trim(),senha:v("Senha")});
-        absorb(j); toast(tab==="criar"?"Conta criada":"Pronto, você entrou"); if(after) after(); offerRestore();
+        absorb(j); toast(tab==="criar"?"Conta criada":"Pronto, você entrou"); if(after) after(); Sync.run();
       }catch(x){ err.textContent=x.message; err.hidden=false; btn.disabled=false; btn.textContent=tab==="criar"?"Criar conta":"Entrar"; }
     };
     void box;
@@ -1166,7 +1166,7 @@ const Conta=(()=>{
   async function offerRestore(){
     try{ const i=await call("backup_info",{}); if(i.backup&&!items.length){ const b=await call("backup_baixar",{}); const n=mergeBackup(JSON.parse(b.dados)); toast(n+" registros trazidos do seu backup na nuvem"); } }catch(e){}
   }
-  async function sair(){ try{ await call("sair",{}); }catch(e){} st.token=null; st.usuario=null; save(); refresh(); toast("Você saiu da conta"); }
+  async function sair(){ try{ await Sync.run(); }catch(e){} try{ await call("sair",{}); }catch(e){} st.token=null; st.usuario=null; save(); refresh(); toast("Você saiu da conta"); }
   async function backupUp(quiet){ const j=await call("backup_enviar",{dados:backupJson()}); lsSet("rp_bk_at",Date.now()); if(!quiet) toast("Backup enviado para a nuvem"); renderConta(); return j; }
   async function backupDown(){ const b=await call("backup_baixar",{}); const n=mergeBackup(JSON.parse(b.dados)); toast(n+" registros novos trazidos da nuvem"); }
   /* backup automático: envia quando algo mudou (no máximo a cada 2 min), para o faturamento no computador ficar em dia */
@@ -1175,7 +1175,7 @@ const Conta=(()=>{
   function autoBackup(){
     if(!st.token||!items.length) return;
     clearTimeout(bkTimer);
-    const wait=Math.max(0,120000-(Date.now()-(lsGet("rp_bk_at",0)||0)));
+    const wait=Math.max(0,6*3600e3-(Date.now()-(lsGet("rp_bk_at",0)||0))); /* cópia de segurança a cada 6 h; o dia a dia vai pela sincronização */
     bkTimer=setTimeout(()=>{ const g=sig(); if(g===lsGet("rp_bk_sig","")) return; backupUp(true).then(()=>lsSet("rp_bk_sig",g)).catch(()=>{}); },Math.max(wait,8000));
   }
   const painelUrl=()=>srv().replace(/api\/?$/,"painel/");
@@ -1204,17 +1204,95 @@ const Conta=(()=>{
     const bk=lsGet("rp_bk_at",0);
     box.innerHTML='<div class="r"><span class="ico">'+I.user+'</span><span class="k">'+esc(u.nome)+'<span class="t2">'+esc(u.email)+' · '+esc(u.plano?u.plano+" · ":"")+val+'</span></span></div>'+
       '<div class="r col"><span class="k">Ver no computador<span class="t2">Abra este endereço no navegador do PC e entre com a mesma conta</span></span><div class="addrow"><input class="inp" id="cUrl" readonly value="'+esc(painelUrl())+'"><button class="btn ghost" type="button" id="cCopy" style="flex:0 0 auto">Copiar</button></div></div>'+
-      '<button class="r" type="button" id="cUp"><span class="ico">'+I.up+'</span><span class="k">Enviar backup para a nuvem<span class="t2">'+(bk?"Último: "+new Date(bk).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})+" · automático quando algo muda":"Automático quando algo muda")+'</span></span><span class="v muted">›</span></button>'+
-      '<button class="r" type="button" id="cDown"><span class="ico">'+I.down+'</span><span class="k">Trazer backup da nuvem<span class="t2">Junta com o que já está neste celular</span></span><span class="v muted">›</span></button>'+
+      '<button class="r" type="button" id="cSync"><span class="ico">'+I.up+'</span><span class="k">Salvo na sua conta<span class="t2" id="cSyncT">'+esc(Sync.texto())+'</span></span><span class="v link">Sincronizar</span></button>'+
       '<button class="r" type="button" id="cPw"><span class="ico">'+I.gear+'</span><span class="k">Trocar senha</span><span class="v muted">›</span></button>'+
       '<button class="r" type="button" id="cOut"><span class="ico neg">'+I.user+'</span><span class="k">Sair da conta</span></button>';
-    $("#cUp").onclick=()=>backupUp().then(()=>lsSet("rp_bk_sig",sig())).catch(x=>toast(x.message));
+    $("#cSync").onclick=()=>{ Sync.run(true); toast("Sincronizando…"); }; void bk;
     $("#cCopy").onclick=()=>{ const i=$("#cUrl"); i.select(); (navigator.clipboard?navigator.clipboard.writeText(i.value):Promise.reject()).then(()=>toast("Endereço copiado")).catch(()=>{ try{ document.execCommand("copy"); toast("Endereço copiado"); }catch(e){} }); };
-    $("#cDown").onclick=()=>backupDown().catch(x=>toast(x.message));
     $("#cPw").onclick=openSenha;
     $("#cOut").onclick=()=>{ const b=$("#cOut .k"); if(!b.dataset.arm){ b.dataset.arm=1; b.textContent="Toque de novo para sair"; return; } sair(); };
   }
-  return {refresh,openLogin,openServidor,renderConta,ui,autoBackup,get st(){return st;}};
+  return {refresh,openLogin,openServidor,renderConta,ui,autoBackup,call,logged:()=>!!(st.token&&st.usuario),get st(){return st;}};
+})();
+
+/* ================= sincronização com a conta =================
+   Cada lançamento, parada, rota agendada, PNR e as configurações vão para o servidor assim que mudam
+   (ou quando voltar a internet). Entrando na mesma conta em outro celular, tudo volta.
+   Vale a última alteração; exclusões também são levadas. */
+const Sync=(()=>{
+  let snap=null, timer=null, busy=false, again=false, erro="";
+  const pend=()=>lsGet("rp_pend",{}), dels=()=>lsGet("rp_del",{});
+  const cfgSig=()=>{ const c={...cfg}; delete c._mod; delete c.trabalhoLL; delete c.casaLL; return JSON.stringify(c); };
+  function snapshot(){ snap={}; items.forEach(x=>snap[x.id]=JSON.stringify(x)); if(!lsGet("rp_cfg_sig","")) lsSet("rp_cfg_sig",cfgSig()); }
+  function mark(id,t){ const p=pend(); p[id]=t||Date.now(); lsSet("rp_pend",p); }
+  /* compara com a última foto dos dados: o que mudou ganha data de alteração e entra na fila */
+  function diff(){
+    if(!snap){ snapshot(); return; }
+    const now=Date.now(), seen={}; let n=0;
+    items.forEach(x=>{ seen[x.id]=1; const j=JSON.stringify(x); if(snap[x.id]!==j){ x.mod=now; snap[x.id]=JSON.stringify(x); mark(x.id,now); n++; } });
+    Object.keys(snap).forEach(id=>{ if(!seen[id]){ delete snap[id]; const d=dels(); d[id]=now; lsSet("rp_del",d); mark(id,now); n++; } });
+    const cs=cfgSig(); if(cs!==lsGet("rp_cfg_sig","")){ cfg._mod=now; lsSet("rp_cfg_sig",cs); mark("_cfg",now); n++; }
+    if(n) schedule(2500);
+  }
+  function schedule(ms){ clearTimeout(timer); timer=setTimeout(()=>run(),ms); }
+  function apply(list){
+    let ch=false; const d=dels();
+    list.forEach(r=>{
+      if(r.id==="_cfg"){ if(r.del) return; try{ const c=JSON.parse(r.dados); if((c._mod||0)>(cfg._mod||0)){ cfg={...DEF_CFG,...c,tema:cfg.tema}; lsSet("rp_cfg_sig",cfgSig()); ch=true; } }catch(e){} return; }
+      const i=items.findIndex(x=>x.id===r.id), cur=i>=0?items[i]:null, lm=cur?(cur.mod||cur.ts||0):(d[r.id]||0);
+      if(r.alterado<=lm) return;
+      if(r.del){ if(i>=0){ items.splice(i,1); delete snap[r.id]; ch=true; } }
+      else { try{ const o=JSON.parse(r.dados); o.mod=r.alterado; if(i>=0) items[i]=o; else items.push(o); snap[r.id]=JSON.stringify(o); ch=true; }catch(e){} }
+    });
+    if(ch){ lsSet("rp_items",items); lsSet("rp_cfg",cfg); applyTema(); pushAlertCfg(); renderAll(); syncLembretes(); }
+  }
+  async function run(manual){
+    if(!Conta.logged()) { ui(); return; }
+    if(busy){ again=true; return; } busy=true; erro="";
+    try{
+      const uid=Conta.st.usuario.id, su=lsGet("rp_sync_uid",null);
+      if(su!==null&&su!==uid){ /* outra conta neste celular: os dados da conta anterior já estão no servidor dela */
+        items=[]; snap={}; ["rp_pend","rp_del"].forEach(k=>lsSet(k,{})); lsSet("rp_cursor",0); lsSet("rp_items",items); renderAll(); }
+      if(su===null){ /* primeira vez nesta conta: manda tudo o que já está no celular */
+        const p=pend(); items.forEach(x=>{ if(!x.mod) x.mod=x.ts||Date.now(); p[x.id]=p[x.id]||x.mod; }); /* configurações: só sobem se este celular já tinha dados; celular novo recebe as da conta */
+          if(items.length){ cfg._mod=Date.now(); p._cfg=cfg._mod; lsSet("rp_cfg",cfg); lsSet("rp_cfg_sig",cfgSig()); } else { delete p._cfg; cfg._mod=0; }
+          lsSet("rp_pend",p); lsSet("rp_items",items); snapshot(); }
+      lsSet("rp_sync_uid",uid);
+      for(let volta=0; volta<20; volta++){
+        const p=pend(), ids=Object.keys(p).slice(0,400), d=dels();
+        const mud=ids.map(id=>{
+          if(id==="_cfg") return {id,alterado:cfg._mod||1,del:0,dados:JSON.stringify(cfg)};
+          const it=items.find(x=>x.id===id);
+          return it?{id,alterado:it.mod||it.ts||Date.now(),del:0,dados:JSON.stringify(it)}:{id,alterado:d[id]||Date.now(),del:1};
+        });
+        const j=await Conta.call("sync",{cursor:lsGet("rp_cursor",0),mudancas:mud});
+        const p2=pend(); ids.forEach(id=>{ if(p2[id]===p[id]) delete p2[id]; }); lsSet("rp_pend",p2);
+        apply(j.mudancas||[]); lsSet("rp_cursor",j.cursor||0);
+        if(!j.mais&&!Object.keys(pend()).length) break;
+      }
+      lsSet("rp_sync_at",Date.now());
+      if(manual) toast("Tudo salvo na sua conta");
+    }catch(e){ erro=e.message||"erro"; schedule(60000); if(manual) toast(erro); }
+    finally{ busy=false; ui(); if(again){ again=false; schedule(800); } }
+  }
+  function texto(){
+    if(!Conta.logged()) return "";
+    const n=Object.keys(pend()).length, at=lsGet("rp_sync_at",0);
+    if(erro) return "Não salvou ("+erro+"). "+(n?n+" alteração(ões) esperando.":"");
+    if(n) return n+" alteração(ões) esperando internet";
+    return at?"Tudo salvo · "+new Date(at).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"Ainda não sincronizou";
+  }
+  function ui(){
+    const el=$("#syncInfo"); if(el){
+      if(!Conta.st||!Conta.st.modo&&!Conta.logged()) el.hidden=true;
+      else { el.hidden=false; const ok=Conta.logged()&&!erro&&!Object.keys(pend()).length;
+        el.className="syncinfo"+(ok?" ok":Conta.logged()?" wait":"");
+        el.innerHTML=Conta.logged()?esc(texto()):'Seus lançamentos estão só neste celular. <button type="button" class="link" id="syncLogin">Entrar na conta para guardar</button>';
+        const b=$("#syncLogin"); if(b) b.onclick=()=>Conta.openLogin(); }
+    }
+    const t=$("#cSyncT"); if(t) t.textContent=texto();
+  }
+  return {diff,snapshot,run,ui,texto};
 })();
 
 /* ================= ligações ================= */
@@ -1305,6 +1383,8 @@ items=lsGet("rp_items",[]); cfg={...DEF_CFG,...lsGet("rp_cfg",{})}; hRef=today()
 /* o Envios Extra avisa "Há novos percursos disponíveis!": garante a palavra "percurso" em quem já tinha a lista antiga */
 if(!/percurso/i.test(cfg.alertWords||"")){ cfg.alertWords=(cfg.alertWords?cfg.alertWords+", ":"")+"percurso"; lsSet("rp_cfg",cfg); }
 $("#ver").textContent="Rota Paga · versão "+(nat("version")||"web");
+Sync.snapshot();
 applyTema(); pushAlertCfg(); Trip.boot(); renderAll(); onHash(); Conta.ui(); Conta.refresh(); syncLembretes();
+Sync.run(); setInterval(()=>{ if(!document.hidden) Sync.run(); },90000);
 setTimeout(()=>window.__rota("resume"),300);
 })();

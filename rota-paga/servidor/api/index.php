@@ -148,6 +148,64 @@ try {
         if (!$b) erro('Você ainda não tem backup na nuvem.');
         sai(['ok' => true, 'dados' => $b['dados'], 'em' => $b['atualizado_em']]);
 
+    /*
+     * Sincronização entre celulares: o app manda o que mudou desde a última vez e recebe o que mudou
+     * em outros aparelhos (rev > cursor). Vale o que foi alterado por último.
+     */
+    case 'sync':
+        $u = logado($in) ?: erro('Entre na sua conta de novo.', 401);
+        $uid = (int)$u['id'];
+        $pdo = db();
+        $cursor = max(0, (int)($in['cursor'] ?? 0));
+        $mud = is_array($in['mudancas'] ?? null) ? array_slice($in['mudancas'], 0, 1000) : [];
+        $pdo->beginTransaction();
+        try {
+            $rev = (int)$pdo->query('SELECT COALESCE(MAX(rev), 0) FROM registros WHERE usuario_id = ' . $uid)->fetchColumn();
+            // primeira sincronização de quem já tinha backup: traz o backup para os registros
+            if ($rev === 0) {
+                $b = $pdo->prepare('SELECT dados FROM backups WHERE usuario_id = ?'); $b->execute([$uid]);
+                $bk = json_decode((string)$b->fetchColumn(), true);
+                if (is_array($bk) && is_array($bk['items'] ?? null)) {
+                    $ins = $pdo->prepare('INSERT INTO registros (usuario_id, item_id, dados, alterado, excluido, rev) VALUES (?, ?, ?, ?, 0, ?)');
+                    foreach ($bk['items'] as $x) {
+                        if (!is_array($x) || empty($x['id'])) continue;
+                        $ins->execute([$uid, substr((string)$x['id'], 0, 80), json_encode($x, JSON_UNESCAPED_UNICODE), (int)($x['mod'] ?? $x['ts'] ?? 1), ++$rev]);
+                    }
+                    if (is_array($bk['cfg'] ?? null)) $ins->execute([$uid, '_cfg', json_encode($bk['cfg'], JSON_UNESCAPED_UNICODE), (int)($bk['cfg']['_mod'] ?? 1), ++$rev]);
+                }
+            }
+            $get = $pdo->prepare('SELECT alterado FROM registros WHERE usuario_id = ? AND item_id = ?');
+            $del = $pdo->prepare('DELETE FROM registros WHERE usuario_id = ? AND item_id = ?');
+            $ins = $pdo->prepare('INSERT INTO registros (usuario_id, item_id, dados, alterado, excluido, rev) VALUES (?, ?, ?, ?, ?, ?)');
+            $aceitos = 0;
+            foreach ($mud as $m) {
+                if (!is_array($m)) continue;
+                $id = substr((string)($m['id'] ?? ''), 0, 80);
+                $alt = (int)($m['alterado'] ?? 0);
+                $ex = !empty($m['del']) ? 1 : 0;
+                $dados = $ex ? null : (string)($m['dados'] ?? '');
+                if ($id === '' || $alt <= 0) continue;
+                if (!$ex && (strlen($dados) > 60000 || json_decode($dados) === null)) continue;
+                $get->execute([$uid, $id]);
+                $atual = $get->fetchColumn();
+                if ($atual !== false && (int)$atual >= $alt) continue; // o servidor já tem uma versão mais nova
+                $del->execute([$uid, $id]);
+                $ins->execute([$uid, $id, $dados, $alt, $ex, ++$rev]);
+                $aceitos++;
+            }
+            $pdo->commit();
+        } catch (Throwable $e) { $pdo->rollBack(); throw $e; }
+        $st = $pdo->prepare('SELECT item_id, dados, alterado, excluido, rev FROM registros WHERE usuario_id = ? AND rev > ? ORDER BY rev LIMIT 2001');
+        $st->execute([$uid, $cursor]);
+        $rows = $st->fetchAll();
+        $mais = count($rows) > 2000;
+        if ($mais) array_pop($rows);
+        $out = [];
+        foreach ($rows as $r) $out[] = ['id' => $r['item_id'], 'alterado' => (int)$r['alterado'], 'del' => (int)$r['excluido'], 'dados' => $r['dados']];
+        $novo = $rows ? (int)end($rows)['rev'] : max($cursor, 0);
+        if (!$rows && $cursor > $rev) $novo = $rev; // cursor de um banco antigo: começa de novo
+        sai(['ok' => true, 'cursor' => $novo, 'mais' => $mais, 'mudancas' => $out, 'aceitos' => $aceitos, 'total' => $rev]);
+
     case 'backup_info':
         $u = logado($in) ?: erro('Entre na sua conta.', 401);
         $st = db()->prepare('SELECT tamanho, atualizado_em FROM backups WHERE usuario_id = ?');
