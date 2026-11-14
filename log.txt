@@ -1,0 +1,14 @@
+dns 8.8.8.8 rotapaga.primehosttv.com.br A -> 192.109.11.49
+dns 1.1.1.1 rotapaga.primehosttv.com.br A -> 192.109.11.49
+dns 8.8.8.8 rotapaga.primehosttv.com.br CNAME -> (nada)
+dns 1.1.1.1 rotapaga.primehosttv.com.br CNAME -> (nada)
+dns 8.8.8.8 primehosttv.com.br A -> 192.109.11.49
+dns 1.1.1.1 primehosttv.com.br A -> 192.109.11.49
+dns 8.8.8.8 primehosttv.com.br NS -> ns2.hostmf.com.br. ns1hostmf.com.br.
+dns 1.1.1.1 primehosttv.com.br NS -> ns1hostmf.com.br. ns2.hostmf.com.br.
+servidor status 200 {"ok":true,"servico":"Rota Paga","modo":"conta","aviso":"","cadastro_aberto":true,"usuario":null,"acesso":{"liberado":false,"motivo":"sem_login","mensagem":"Entre ou crie sua conta para continuar."},"agora":"2026-11-14 18:54:25"}
+servidor registrar HTTP 400 {"ok":false,"erro":"A senha precisa ter pelo menos 6 caracteres."}
+paradas: [["Rua Breno Teodomiro de Carvalho, Teresina", -5.1025564, "ok"], ["Avenida José Francisco de Almeida Neto, Teresina", -5.1053429, "ok"], ["Ponto A", -5.0905, "ok"], ["Ponto B", -5.0825, "ok"], ["Ponto C", -5.095, "ok"], ["Ponto D", -5.079, "ok"]]
+opcoes: Ordem otimizada | 18min dirigindo + 18min nas paradas · custo R$ 9,41 | MAIS CURTA · MAIS RÁPIDA | 11,5 km | 36min | Na ordem da lista | 27min dirigindo + 18min nas paradas · custo R$ 15,00 | 18,3 km | 45min | USAR ESTA ROTA | NAVEGAR
+trip: 0:00:20 | 0,3 km · rodando ·  | GPS ok | 0 de 17 pacotes entregues | RENDENDO AGORA | Editar valor | R$/HORA | — | R$/KM | — | R$/PACOTE | R$ 3,13 | CUSTO DO KM | R$ 0,27 | LUCRO REAL | R$ 149,73 | LUCRO/HORA | — | Valor R$ 150,00 · 48 pacotes · custo = 0,3 km × R$ 0,82/km
+erros: ["Failed to load resource: net::ERR_FAILED", "Failed to load resource: net::ERR_FAILED", "Failed to load resource: net::ERR_FAILED"]
