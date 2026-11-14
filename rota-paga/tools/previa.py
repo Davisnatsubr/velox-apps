@@ -44,6 +44,16 @@ try:
 except Exception:
     srv_url = ""
 if srv_url:
+    import subprocess, urllib.parse
+    host = urllib.parse.urlparse(srv_url).hostname or ""
+    raiz = ".".join(host.split(".")[-3:]) if host.endswith(".com.br") else ".".join(host.split(".")[-2:])
+    for nome, tipo in ((host, "A"), (host, "CNAME"), (raiz, "A"), (raiz, "NS")):
+        for dns in ("8.8.8.8", "1.1.1.1"):
+            try:
+                o = subprocess.run(["dig", "+short", "@" + dns, nome, tipo], capture_output=True, text=True, timeout=15).stdout.strip().replace("\n", " ")
+            except Exception as e:
+                o = repr(e)
+            say("dns", dns, nome, tipo, "->", o or "(nada)")
     for acao in ("status", "registrar"):
         try:
             body = b"{}" if acao == "status" else json.dumps({"nome": "Teste CI", "email": "ci-%d@teste.invalid" % int(time.time()), "senha": "x"}).encode()
