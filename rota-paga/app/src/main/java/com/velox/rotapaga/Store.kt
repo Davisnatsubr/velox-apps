@@ -10,7 +10,7 @@ object Store {
     fun p(ctx: Context): SharedPreferences = ctx.getSharedPreferences("rotapaga", Context.MODE_PRIVATE)
 
     private const val DEF_CFG =
-        """{"enabled":true,"keywords":["rota","envio extra","envios extra","nova oferta","pacotes"],"apps":[],"seconds":10,
+        """{"enabled":true,"keywords":["rota","percurso","envio extra","envios extra","nova oferta","pacotes"],"apps":[],"seconds":10,
            "ruimPct":2.2,"metaPct":2.8,"ruimKm":1.4,"metaKm":1.8,"ruimHora":25,"metaHora":35,"gas":6.29,"cons":11,"overlay":true,"bubble":false}"""
 
     fun cfg(ctx: Context): JSONObject {

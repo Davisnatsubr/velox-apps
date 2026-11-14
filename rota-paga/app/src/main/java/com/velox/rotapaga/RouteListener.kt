@@ -39,7 +39,8 @@ class RouteListener : NotificationListenerService() {
 
         val c = Store.cfg(this)
         val words = Store.keywords(c)
-        val t = Calc.norm(full)
+        // o nome do app também conta: "Envios Extra" não aparece no texto da notificação dele
+        val t = Calc.norm("$label · $full")
         val apps0 = Store.apps(c)
         // "qualquer notificação dos apps marcados": não precisa de palavra-chave
         val hit = (words.isNotEmpty() && words.any { t.contains(it) }) ||

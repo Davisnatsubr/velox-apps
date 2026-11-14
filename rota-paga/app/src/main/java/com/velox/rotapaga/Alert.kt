@@ -56,7 +56,7 @@ object Alert {
             return "$sinal ${Calc.brl(porPct)}/pacote · ${Calc.brl(v)} · $p pct"
         }
         if (v != null) return "📦 Rota de ${Calc.brl(v)}"
-        return "📦 Rota nova"
+        return "📦 Rota nova! Abra e confira o valor"
     }
 
     fun fire(ctx0: Context, text: String, app: String, pkg: String? = null, origem: PendingIntent? = null) {

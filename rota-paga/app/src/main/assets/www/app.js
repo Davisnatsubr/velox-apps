@@ -81,7 +81,7 @@ const GANHOS=["uber","uberx","entrega","frete","extra"], GASTOS=["abast","manut"
 const VEIC={bike:{cons:0,desg:.03},moto:{cons:35,desg:.12},carro:{cons:11,desg:.25},util:{cons:8,desg:.38},caminhao:{cons:4,desg:.9}};
 const DEF_CFG={nome:"",gas:6.29,cons:11,desg:.25,ruimPct:2.2,metaPct:2.8,ruimKm:1.4,metaKm:1.8,ruimHora:25,metaHora:35,nav:"gmaps",tParada:3,veiculo:"carro",cidade:"",casa:"",trabalho:"",tema:"sistema",
   alertOn:true,overlayOn:true,bubbleOn:false,abrirApp:false,qualquer:false,
-  lembNoite:true,lembNoiteH:"20:00",lembAntes:true,lembAntesMin:30,lembDia:false,lembDiaH:"10:50",alertWords:"rota, envio extra, envios extra, nova oferta, pacotes",alertApps:[],alertSecs:10};
+  lembNoite:true,lembNoiteH:"20:00",lembAntes:true,lembAntesMin:30,lembDia:false,lembDiaH:"10:50",alertWords:"rota, percurso, envio extra, envios extra, nova oferta, pacotes",alertApps:[],alertSecs:10};
 
 /* ================= estado e utilidades ================= */
 let items=[], cfg={...DEF_CFG}, view="inicio", hP="mes", hRef="", hTab="lanc";
@@ -1302,6 +1302,8 @@ document.addEventListener("visibilitychange",()=>{ if(!document.hidden) window._
 
 /* ================= início ================= */
 items=lsGet("rp_items",[]); cfg={...DEF_CFG,...lsGet("rp_cfg",{})}; hRef=today();
+/* o Envios Extra avisa "Há novos percursos disponíveis!": garante a palavra "percurso" em quem já tinha a lista antiga */
+if(!/percurso/i.test(cfg.alertWords||"")){ cfg.alertWords=(cfg.alertWords?cfg.alertWords+", ":"")+"percurso"; lsSet("rp_cfg",cfg); }
 $("#ver").textContent="Rota Paga · versão "+(nat("version")||"web");
 applyTema(); pushAlertCfg(); Trip.boot(); renderAll(); onHash(); Conta.ui(); Conta.refresh(); syncLembretes();
 setTimeout(()=>window.__rota("resume"),300);

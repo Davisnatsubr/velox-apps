@@ -177,7 +177,7 @@ object Overlay {
                 box.addView(row, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(ctx, 10) })
                 if (r.verdict > 0) box.addView(tv(ctx, verdictText(r.verdict), 13f, COR[r.verdict]!!, true), LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(ctx, 8) })
             } else {
-                box.addView(tv(ctx, "Não veio o valor e os pacotes na notificação. Toque na bolha ou aqui para calcular.", 13f, MUTED), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(ctx, 8) })
+                box.addView(tv(ctx, "Rota nova! A notificação não traz o valor. Abra o app de entregas, veja a oferta e toque na bolha R$ para calcular.", 13f, MUTED), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(ctx, 8) })
             }
             wrap.addView(box)
             val p = lp(WindowManager.LayoutParams.MATCH_PARENT, false).apply {
