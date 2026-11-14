@@ -1,6 +1,7 @@
 <?php
 /* Painel do Rota Paga: gerenciar acessos, usuários e o modo do app. */
 require_once __DIR__ . '/../inc/lib.php';
+require_once __DIR__ . '/../inc/faturamento.php';
 
 const CSS = <<<'CSS'
 :root{--bg:#F2F5F3;--s:#fff;--ink:#13201A;--mu:#5B6A63;--li:#D9E1DC;--ac:#0A6B4B;--soft:#E2EFE8;--good:#1D8A4E;--warn:#A86E12;--bad:#BF3B28;--gb:#E1F3E8;--wb:#FBF0DA;--bb:#FBE4E0}
@@ -179,6 +180,23 @@ if (post_ok()) {
 }
 
 /* ---------- páginas ---------- */
+function brl(float $v): string { return 'R$ ' . number_format($v, 2, ',', '.'); }
+/** Soma do mês atual de todos os backups (só conta quem tem conta e fez backup). */
+function brl_total(): string {
+    $t = 0.0;
+    foreach (db()->query('SELECT dados FROM backups') as $b) $t += resumo_mes($b['dados'])['bruto'];
+    return '<span style="font-size:24px">' . brl($t) . '</span>';
+}
+
+/* faturamento de um motorista, na mesma tela que ele vê no computador */
+if ($p === 'faturamento') {
+    $id = (int)($_GET['id'] ?? 0);
+    $st = db()->prepare('SELECT u.nome, b.dados, b.atualizado_em FROM usuarios u LEFT JOIN backups b ON b.usuario_id = u.id WHERE u.id = ?'); $st->execute([$id]); $r = $st->fetch();
+    if (!$r || !$r['dados']) voltar('usuario&id=' . $id, 'Este usuário ainda não enviou backup do app.');
+    render_faturamento($r['dados'], $r['nome'], $r['atualizado_em'], '?p=usuario&id=' . $id);
+    exit;
+}
+
 function n(string $sql, array $a = []): int { $st = db()->prepare($sql); $st->execute($a); return (int)$st->fetchColumn(); }
 function chip(string $s): string {
     $c = ['ativo' => 'good', 'bloqueado' => 'bad', 'pendente' => 'warn'][$s] ?? 'none';
@@ -207,6 +225,7 @@ if ($p === 'inicio') {
         ['Usaram nos últimos 7 dias', n('SELECT COUNT(*) FROM usuarios WHERE ultimo_acesso >= ?', [$d7]), ''], ['Novos em 7 dias', n('SELECT COUNT(*) FROM usuarios WHERE criado_em >= ?', [$d7]), ''],
         ['Vencem em 7 dias', n('SELECT COUNT(*) FROM usuarios WHERE expira >= ? AND expira <= ?', [hoje(), date('Y-m-d', strtotime('+7 days'))]), 'warn'],
         ['Aparelhos conectados', n('SELECT COUNT(*) FROM sessoes'), ''],
+        ['Ganho bruto dos motoristas no mês', brl_total(), ''],
     ];
     $html .= '<div class="modo ' . h($modo) . '"><b>Modo do app: ' . h($MODOS[$modo][0] ?? $modo) . '</b><span>' . h($MODOS[$modo][1] ?? '') . '</span><a href="?p=config">Mudar</a></div>';
     if (empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off') $html .= '<p class="warnbox">Este endereço está sem HTTPS: as senhas viajam sem criptografia. Ative o certificado gratuito (Let\'s Encrypt ou Cloudflare) na sua hospedagem.</p>';
@@ -238,18 +257,18 @@ if ($p === 'usuarios') {
     if ($q !== '') { $w[] = '(nome LIKE ? OR email LIKE ? OR telefone LIKE ?)'; array_push($a, "%$q%", "%$q%", "%$q%"); }
     if (in_array($f, ['ativo', 'bloqueado', 'pendente'], true)) { $w[] = 'status = ?'; $a[] = $f; }
     if ($f === 'vencido') { $w[] = 'expira < ?'; $a[] = hoje(); }
-    $st = db()->prepare('SELECT u.*, (SELECT COUNT(*) FROM sessoes s WHERE s.usuario_id = u.id) AS aparelhos FROM usuarios u' . ($w ? ' WHERE ' . implode(' AND ', $w) : '') . ' ORDER BY u.criado_em DESC LIMIT 500');
+    $st = db()->prepare('SELECT u.*, (SELECT COUNT(*) FROM sessoes s WHERE s.usuario_id = u.id) AS aparelhos, (SELECT dados FROM backups k WHERE k.usuario_id = u.id) AS bk FROM usuarios u' . ($w ? ' WHERE ' . implode(' AND ', $w) : '') . ' ORDER BY u.criado_em DESC LIMIT 500');
     $st->execute($a);
     $rows = $st->fetchAll();
     $html .= '<form class="filtros" method="get"><input type="hidden" name="p" value="usuarios"><input name="q" value="' . h($q) . '" placeholder="Buscar nome, e-mail ou telefone">'
         . '<select name="f"><option value="">Todos</option>';
     foreach (['ativo' => 'Ativos', 'pendente' => 'Pendentes', 'bloqueado' => 'Bloqueados', 'vencido' => 'Vencidos'] as $k => $l) $html .= '<option value="' . $k . '"' . ($f === $k ? ' selected' : '') . '>' . $l . '</option>';
     $html .= '</select><button class="btn">Filtrar</button></form>';
-    $html .= '<p class="muted">' . count($rows) . ' usuário(s)</p><div class="tw"><table><tr><th>Nome</th><th>Contato</th><th>Situação</th><th>Validade</th><th>Último uso</th><th>Aparelhos</th><th></th></tr>';
+    $html .= '<p class="muted">' . count($rows) . ' usuário(s)</p><div class="tw"><table><tr><th>Nome</th><th>Contato</th><th>Situação</th><th>Validade</th><th>Último uso</th><th>Ganho no mês</th><th></th></tr>';
     foreach ($rows as $u) {
         $html .= '<tr><td><a href="?p=usuario&id=' . $u['id'] . '"><b>' . h($u['nome']) . '</b></a>' . ($u['plano'] ? '<br><small class="muted">' . h($u['plano']) . '</small>' : '') . '</td>'
             . '<td>' . h($u['email']) . ($u['telefone'] ? '<br><small class="muted">' . h($u['telefone']) . '</small>' : '') . '</td>'
-            . '<td>' . chip($u['status']) . '</td><td>' . validade($u['expira']) . '</td><td>' . data_br($u['ultimo_acesso'], true) . '</td><td>' . (int)$u['aparelhos'] . '</td>'
+            . '<td>' . chip($u['status']) . '</td><td>' . validade($u['expira']) . '</td><td>' . data_br($u['ultimo_acesso'], true) . '</td><td>' . ($u['bk'] !== null ? '<a href="?p=faturamento&id=' . $u['id'] . '">' . brl(resumo_mes($u['bk'])['bruto']) . '</a>' : '<span class="muted">sem backup</span>') . '</td>'
             . '<td><form method="post"><input type="hidden" name="csrf" value="' . $CSRF . '"><input type="hidden" name="acao" value="status"><input type="hidden" name="id" value="' . $u['id'] . '"><input type="hidden" name="volta" value="usuarios">'
             . ($u['status'] === 'bloqueado' ? '<input type="hidden" name="status" value="ativo"><button class="btn sm ghost">Liberar</button>' : '<input type="hidden" name="status" value="bloqueado"><button class="btn sm danger">Bloquear</button>')
             . '</form></td></tr>';
@@ -284,6 +303,8 @@ if ($p === 'usuario') {
     else $html .= '<p class="muted">Nenhum.</p>';
     $b = db()->prepare('SELECT tamanho, atualizado_em FROM backups WHERE usuario_id = ?'); $b->execute([$id]); $b = $b->fetch();
     $html .= '<h2>Backup na nuvem</h2><p class="muted">' . ($b ? round($b['tamanho'] / 1024) . ' KB · ' . data_br($b['atualizado_em'], true) : 'Nenhum backup ainda.') . '</p>';
+    if ($b) { $bk = db()->prepare('SELECT dados FROM backups WHERE usuario_id = ?'); $bk->execute([$id]); $rm = resumo_mes((string)$bk->fetchColumn());
+        $html .= '<h2>Faturamento do mês</h2><p><b>' . brl($rm['bruto']) . '</b> de ganho bruto · lucro ' . brl($rm['lucro']) . ' · ' . $rm['rotas'] . ' rotas · ' . $rm['pacotes'] . ' pacotes</p><p><a class="btn ghost" href="?p=faturamento&id=' . $id . '" style="text-decoration:none;display:inline-block">Ver faturamento completo</a></p>'; }
     $html .= '<h2>Senha</h2><form method="post">' . $hid . '<input type="hidden" name="acao" value="senha_reset"><button class="btn ghost">Gerar senha nova</button></form>';
     $html .= '<h2>Excluir</h2><form method="post" class="inline">' . $hid . '<input type="hidden" name="acao" value="excluir"><input name="confirma" placeholder="Digite EXCLUIR"><button class="btn danger">Excluir usuário</button></form></div></div>';
     $ev = db()->prepare('SELECT e.*, u.nome FROM eventos e LEFT JOIN usuarios u ON u.id = e.usuario_id WHERE e.usuario_id = ? ORDER BY e.id DESC LIMIT 50'); $ev->execute([$id]);

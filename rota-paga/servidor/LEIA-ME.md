@@ -3,7 +3,8 @@
 PHP puro, sem nada para instalar. Serve em hospedagem comum (cPanel, Hostinger, HostGator) e em VPS.
 
 - **App** usa `api/`: criar conta, entrar, sair, trocar senha e backup na nuvem.
-- **Você** usa `admin/`: painel para ver e gerenciar os usuários.
+- **Você** usa `admin/`: painel para ver e gerenciar os usuários, inclusive o ganho de cada motorista.
+- **O motorista** usa `painel/`: o próprio faturamento no computador, entrando com a mesma conta do app.
 - **Banco:** SQLite por padrão, um arquivo em `dados/`. Não precisa criar banco. Também funciona com MySQL.
 
 ## Instalar
@@ -79,3 +80,14 @@ Outras opções:
 ## Copiar os dados
 
 O banco inteiro é o arquivo `dados/rotapaga.sqlite`. Copie esse arquivo de vez em quando.
+
+## Faturamento no computador (`painel/`)
+
+O motorista abre `https://seudominio.com.br/rotapaga/painel/` e entra com o e-mail e a senha do app. A tela mostra:
+- lucro, ganho bruto, despesas e lucro real por semana, mês, ano ou um período escolhido;
+- gráfico por dia ou por mês;
+- de onde veio o dinheiro e para onde foi;
+- entregas por CD, com R$ por pacote e por km;
+- a lista de lançamentos, que dá para baixar em planilha ou imprimir.
+
+Os números vêm do backup que o app envia sozinho quando algo muda (no máximo a cada 2 minutos, com internet). No painel admin, a lista de usuários mostra o ganho do mês de cada um; clique no valor para ver o faturamento completo.

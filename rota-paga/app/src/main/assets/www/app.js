@@ -189,7 +189,7 @@ function sums(from,to){
 }
 
 /* ================= gravação ================= */
-function persist(){ lsSet("rp_items",items); lsSet("rp_cfg",cfg); }
+function persist(){ lsSet("rp_items",items); lsSet("rp_cfg",cfg); try{ Conta.autoBackup(); }catch(e){} }
 function saveDoc(o,quiet){ const i=items.findIndex(x=>x.id===o.id); if(i>=0) items[i]=o; else items.push(o); persist(); if(!quiet) renderAll(); }
 function delDoc(id){ const o=items.find(x=>x.id===id); if(o&&o.foto&&!items.some(x=>x!==o&&x.foto===o.foto)) Fotos.del(o.foto); items=items.filter(x=>x.id!==id); persist(); renderAll(); }
 function saveCfg(){ persist(); applyTema(); pushAlertCfg(); renderAll(); }
@@ -1142,7 +1142,16 @@ const Conta=(()=>{
   async function sair(){ try{ await call("sair",{}); }catch(e){} st.token=null; st.usuario=null; save(); refresh(); toast("Você saiu da conta"); }
   async function backupUp(quiet){ const j=await call("backup_enviar",{dados:backupJson()}); lsSet("rp_bk_at",Date.now()); if(!quiet) toast("Backup enviado para a nuvem"); renderConta(); return j; }
   async function backupDown(){ const b=await call("backup_baixar",{}); const n=mergeBackup(JSON.parse(b.dados)); toast(n+" registros novos trazidos da nuvem"); }
-  function autoBackup(){ if(!st.token||!items.length) return; if(Date.now()-(lsGet("rp_bk_at",0)||0)>20*3600e3) backupUp(true).catch(()=>{}); }
+  /* backup automático: envia quando algo mudou (no máximo a cada 2 min), para o faturamento no computador ficar em dia */
+  const sig=()=>{ const t=JSON.stringify([items,cfg]); let h=0; for(let i=0;i<t.length;i++) h=(h*31+t.charCodeAt(i))|0; return t.length+":"+h; };
+  let bkTimer=null;
+  function autoBackup(){
+    if(!st.token||!items.length) return;
+    clearTimeout(bkTimer);
+    const wait=Math.max(0,120000-(Date.now()-(lsGet("rp_bk_at",0)||0)));
+    bkTimer=setTimeout(()=>{ const g=sig(); if(g===lsGet("rp_bk_sig","")) return; backupUp(true).then(()=>lsSet("rp_bk_sig",g)).catch(()=>{}); },Math.max(wait,8000));
+  }
+  const painelUrl=()=>srv().replace(/api\/?$/,"painel/");
   function openLogin(){
     if(!srv()){ toast("O login ainda não está ligado nesta versão do app."); return; }
     sheet("Sua conta",'<p class="sub" style="margin:0">Com a conta, seus lançamentos ficam guardados na nuvem e voltam se você trocar de celular.</p><div class="stack" id="shAuthBox">'+authForm("s")+'</div>',"","auth");
@@ -1167,16 +1176,18 @@ const Conta=(()=>{
     const val=u.expira?"válido até "+u.expira.split("-").reverse().join("/"):(st.modo==="aberto"?"acesso liberado":"sem validade");
     const bk=lsGet("rp_bk_at",0);
     box.innerHTML='<div class="r"><span class="ico">'+I.user+'</span><span class="k">'+esc(u.nome)+'<span class="t2">'+esc(u.email)+' · '+esc(u.plano?u.plano+" · ":"")+val+'</span></span></div>'+
-      '<button class="r" type="button" id="cUp"><span class="ico">'+I.up+'</span><span class="k">Enviar backup para a nuvem<span class="t2">'+(bk?"Último: "+new Date(bk).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})+" · automático 1 vez por dia":"Automático 1 vez por dia")+'</span></span><span class="v muted">›</span></button>'+
+      '<div class="r col"><span class="k">Ver no computador<span class="t2">Abra este endereço no navegador do PC e entre com a mesma conta</span></span><div class="addrow"><input class="inp" id="cUrl" readonly value="'+esc(painelUrl())+'"><button class="btn ghost" type="button" id="cCopy" style="flex:0 0 auto">Copiar</button></div></div>'+
+      '<button class="r" type="button" id="cUp"><span class="ico">'+I.up+'</span><span class="k">Enviar backup para a nuvem<span class="t2">'+(bk?"Último: "+new Date(bk).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})+" · automático quando algo muda":"Automático quando algo muda")+'</span></span><span class="v muted">›</span></button>'+
       '<button class="r" type="button" id="cDown"><span class="ico">'+I.down+'</span><span class="k">Trazer backup da nuvem<span class="t2">Junta com o que já está neste celular</span></span><span class="v muted">›</span></button>'+
       '<button class="r" type="button" id="cPw"><span class="ico">'+I.gear+'</span><span class="k">Trocar senha</span><span class="v muted">›</span></button>'+
       '<button class="r" type="button" id="cOut"><span class="ico neg">'+I.user+'</span><span class="k">Sair da conta</span></button>';
-    $("#cUp").onclick=()=>backupUp().catch(x=>toast(x.message));
+    $("#cUp").onclick=()=>backupUp().then(()=>lsSet("rp_bk_sig",sig())).catch(x=>toast(x.message));
+    $("#cCopy").onclick=()=>{ const i=$("#cUrl"); i.select(); (navigator.clipboard?navigator.clipboard.writeText(i.value):Promise.reject()).then(()=>toast("Endereço copiado")).catch(()=>{ try{ document.execCommand("copy"); toast("Endereço copiado"); }catch(e){} }); };
     $("#cDown").onclick=()=>backupDown().catch(x=>toast(x.message));
     $("#cPw").onclick=openSenha;
     $("#cOut").onclick=()=>{ const b=$("#cOut .k"); if(!b.dataset.arm){ b.dataset.arm=1; b.textContent="Toque de novo para sair"; return; } sair(); };
   }
-  return {refresh,openLogin,openServidor,renderConta,ui,get st(){return st;}};
+  return {refresh,openLogin,openServidor,renderConta,ui,autoBackup,get st(){return st;}};
 })();
 
 /* ================= ligações ================= */
