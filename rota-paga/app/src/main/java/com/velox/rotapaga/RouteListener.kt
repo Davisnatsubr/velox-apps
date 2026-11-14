@@ -40,7 +40,10 @@ class RouteListener : NotificationListenerService() {
         val c = Store.cfg(this)
         val words = Store.keywords(c)
         val t = Calc.norm(full)
-        val hit = words.isNotEmpty() && words.any { t.contains(it) }
+        val apps0 = Store.apps(c)
+        // "qualquer notificação dos apps marcados": não precisa de palavra-chave
+        val hit = (words.isNotEmpty() && words.any { t.contains(it) }) ||
+            (c.optBoolean("qualquer", false) && apps0.isNotEmpty() && pkg in apps0)
         // notificações fixas (música, GPS...) só entram no registro se tiverem palavra-chave
         val log = { res: String -> if (!sbn.isOngoing || hit) Store.log(this, label, full, res) }
         if (!c.optBoolean("enabled", true)) { log("alerta desligado"); return }
@@ -49,7 +52,7 @@ class RouteListener : NotificationListenerService() {
         if (!hit) { log("sem palavra-chave"); return }
         if (Store.isDuplicate(this, full)) { log("repetida, ignorada"); return }
         log("ALERTA disparado")
-        Alert.fire(this, full, label)
+        Alert.fire(this, full, label, pkg, n.contentIntent)
     }
 
     private fun appLabel(pkg: String): String = try {

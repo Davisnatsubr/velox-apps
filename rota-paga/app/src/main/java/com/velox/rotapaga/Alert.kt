@@ -59,7 +59,7 @@ object Alert {
         return "📦 Rota nova"
     }
 
-    fun fire(ctx0: Context, text: String, app: String) {
+    fun fire(ctx0: Context, text: String, app: String, pkg: String? = null, origem: PendingIntent? = null) {
         val ctx = ctx0.applicationContext
         val c = Store.cfg(ctx)
         val o = Calc.parse(text)
@@ -98,6 +98,8 @@ object Alert {
             val nmc = NotificationManagerCompat.from(ctx)
             if (nmc.areNotificationsEnabled()) nmc.notify(NID, n)
         } catch (_: SecurityException) { }
+        // abre o app de entregas na tela da própria notificação dele (ex.: Disponíveis), com o cartão por cima
+        if (c.optBoolean("abrirApp", false) && pkg != null) abrirOrigem(ctx, pkg, origem)
         if (c.optBoolean("overlay", true)) Overlay.showCard(ctx, o, app)
         play(ctx, c.optInt("seconds", 10).coerceIn(3, 60))
         MainActivity.notifyRoute()
@@ -127,6 +129,32 @@ object Alert {
             v.setTextViewText(R.id.texto, text)
         }
         return v
+    }
+
+    private fun abrirOrigem(ctx: Context, pkg: String, origem: PendingIntent?) {
+        if (origem != null) {
+            try {
+                if (Build.VERSION.SDK_INT >= 34) {
+                    val opt = android.app.ActivityOptions.makeBasic()
+                    @Suppress("DEPRECATION")
+                    opt.setPendingIntentBackgroundActivityStartMode(android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
+                    origem.send(ctx, 0, null, null, null, null, opt.toBundle())
+                } else origem.send()
+                Store.log(ctx, "Rota Paga", "Abri o app de entregas pela notificação dele", "app aberto")
+                return
+            } catch (e: Exception) {
+                Store.log(ctx, "Rota Paga", "Não consegui abrir pela notificação: " + (e.message ?: e.javaClass.simpleName), "tentando outro jeito")
+            }
+        }
+        try {
+            ctx.packageManager.getLaunchIntentForPackage(pkg)?.let {
+                it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                ctx.startActivity(it)
+                Store.log(ctx, "Rota Paga", "Abri o app de entregas", "app aberto")
+            }
+        } catch (e: Exception) {
+            Store.log(ctx, "Rota Paga", "O Android não deixou abrir o app: " + (e.message ?: e.javaClass.simpleName), "não abriu")
+        }
     }
 
     private fun play(ctx: Context, secs: Int) {

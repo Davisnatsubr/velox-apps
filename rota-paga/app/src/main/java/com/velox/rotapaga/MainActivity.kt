@@ -36,6 +36,7 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_ROUTE = "rota_detectada"
+        const val EXTRA_AGENDA = "agenda_id"
         private const val HOST = "appassets.androidplatform.net"
         private const val START = "https://$HOST/assets/www/index.html"
         private var ref: WeakReference<MainActivity>? = null
@@ -188,6 +189,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(i: Intent?) {
+        i?.getStringExtra(EXTRA_AGENDA)?.let { id ->
+            i.removeExtra(EXTRA_AGENDA)
+            val safe = id.replace(Regex("[^\\w-]"), "")
+            // a página pode ainda estar carregando: tenta de novo por alguns segundos
+            web.postDelayed({ js("window.__rota&&window.__rota('agenda','$safe')") }, 900)
+        }
         if (i?.getBooleanExtra(EXTRA_ROUTE, false) == true) {
             Alert.stop(this)
             Overlay.hideCard()

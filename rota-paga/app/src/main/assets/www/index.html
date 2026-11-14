@@ -175,6 +175,8 @@
       <div class="r"><span class="ico" data-i="expand"></span><span class="k">Aparecer sobre outros apps<span class="t2" id="ovAccess"></span></span><button type="button" class="link" id="ovGrant">Permitir</button></div>
       <label class="r"><span class="ico" data-i="calc"></span><span class="k">Cartão por cima do Mercado Livre<span class="t2">Quando chega a rota, mostra R$/pacote, R$/km e lucro flutuando por cima do app</span></span><input type="checkbox" class="sw" id="ovOn"></label>
       <label class="r"><span class="ico" data-i="coin"></span><span class="k">Bolha de cálculo rápido<span class="t2">Um botão flutuante: toque, digite valor, pacotes e km da oferta e veja se compensa sem sair do app de entregas</span></span><input type="checkbox" class="sw" id="bbOn"></label>
+      <label class="r"><span class="ico" data-i="nav"></span><span class="k">Abrir o app de entregas na hora<span class="t2">Quando a rota chega, o Rota Paga abre o app do Mercado Livre na tela da notificação dele (normalmente Disponíveis), com o cartão do cálculo por cima. Você escolhe e aceita.</span></span><input type="checkbox" class="sw" id="alAbrir"></label>
+      <label class="r"><span class="ico" data-i="bell"></span><span class="k">Qualquer notificação dos apps marcados<span class="t2">Dispara mesmo sem as palavras abaixo. Use quando o Meli Extra não for detectado: marque o app dele em "Só destes apps".</span></span><input type="checkbox" class="sw" id="alQualquer"></label>
       <label class="r"><span class="ico" data-i="clock"></span><span class="k">Duração do alarme</span><select id="alSecs"><option value="5">5 segundos</option><option value="10">10 segundos</option><option value="20">20 segundos</option><option value="30">30 segundos</option></select></label>
       <div class="r col"><span class="k">Palavras que disparam o alarme</span><input class="inp" id="alWords" autocomplete="off"><span class="t2">Separe por vírgula. Basta uma aparecer na notificação.</span></div>
       <div class="r col"><span class="k">Só destes apps</span><div id="alApps" class="chips"></div><span class="t2" id="alAppsHint">Os apps aparecem aqui depois que mandam alguma notificação. Sem nenhum marcado, vale para todos.</span></div>
@@ -194,6 +196,13 @@
   </div>
 
   <div class="set" id="contaSet"><small>Conta</small><div class="rows" id="contaBox"></div></div>
+
+  <div class="set" id="lembSet" hidden><small>Lembretes</small><div class="rows">
+    <label class="r"><span class="ico" data-i="cal"></span><span class="k">Na noite anterior à rota agendada</span><input type="time" class="tm" id="lbNoiteH"><input type="checkbox" class="sw" id="lbNoite"></label>
+    <label class="r"><span class="ico" data-i="timer"></span><span class="k">Antes da saída<span class="t2">Usa o horário de saída da rota agendada</span></span><select id="lbAntesMin"><option value="15">15 min</option><option value="30">30 min</option><option value="45">45 min</option><option value="60">1 hora</option></select><input type="checkbox" class="sw" id="lbAntes"></label>
+    <label class="r"><span class="ico" data-i="bell"></span><span class="k">Hora das rotas, todo dia<span class="t2">Para ficar de olho nas ofertas</span></span><input type="time" class="tm" id="lbDiaH"><input type="checkbox" class="sw" id="lbDia"></label>
+    <div class="r" id="lbExact" hidden><span class="ico" data-i="clock"></span><span class="k">Horário exato<span class="t2">Sem esta permissão o lembrete pode atrasar até 5 minutos</span></span><button type="button" class="link" id="lbExactBtn">Permitir</button></div>
+  </div></div>
 
   <div class="set"><small>Perfil</small><div class="rows">
     <label class="r"><span class="ico" data-i="user"></span><span class="k">Seu nome</span><input class="inl" id="a_nome" placeholder="Motorista" autocomplete="off"></label>

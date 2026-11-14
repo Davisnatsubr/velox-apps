@@ -334,3 +334,7 @@ body.gated .tabbar{display:none}
 .err{color:var(--bad);background:var(--bad-bg);border-radius:10px;padding:10px 12px;margin:0;font-size:14px}
 .aviso{background:var(--warn-bg);color:var(--ink);border-radius:12px;padding:12px 14px;font-weight:600;font-size:15px}
 .ver{cursor:default;user-select:none}
+
+/* lembretes */
+.r input.tm{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:6px 8px;font-size:15px;font-weight:600;color:var(--ink);width:auto}
+.r select+.sw,.r input.tm+.sw{margin-left:4px}

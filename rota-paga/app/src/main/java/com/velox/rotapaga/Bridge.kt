@@ -92,6 +92,22 @@ class Bridge(private val a: MainActivity) {
         return "ok"
     }
 
+    /* ---------- lembretes ---------- */
+
+    @JavascriptInterface fun setReminders(json: String): String { Reminders.set(a, json); return "ok" }
+
+    @JavascriptInterface fun canExactAlarms(): Boolean = Reminders.canExact(a)
+
+    @JavascriptInterface fun openExactAlarmSettings(): String {
+        a.runOnUiThread {
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= 31)
+                    a.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + a.packageName)))
+            } catch (_: Exception) { }
+        }
+        return "ok"
+    }
+
     @JavascriptInterface fun clearLog(): String { Store.p(a).edit().remove("nlog").apply(); return "ok" }
 
     @JavascriptInterface fun openAlertAccess(): String {

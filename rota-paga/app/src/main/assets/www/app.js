@@ -60,7 +60,7 @@ const F={
   litros:{l:"Litros",t:"num",ph:"40"}, codigo:{l:"Código do pacote",t:"text",full:1},
   endereco:{l:"Endereço",t:"text",full:1}, motivo:{l:"Motivo",t:"select",opts:MOTIVOS,full:1},
   desconto:{l:"Desconto (R$)",t:"num",ph:"0"}, status:{l:"Situação",t:"select",opts:STATUS_PNR},
-  obs:{l:"Observação",t:"text",full:1}, hora:{l:"Saída",t:"text",ph:"07:00"}
+  obs:{l:"Observação",t:"text",full:1}, hora:{l:"Horário de saída",t:"time"}
 };
 const T={
   uber:{n:"Uber",i:"car",f:["data","cliente","valor","km","cons","tempo","pedagio","embutidas"]},
@@ -80,7 +80,8 @@ const T={
 const GANHOS=["uber","uberx","entrega","frete","extra"], GASTOS=["abast","manut","alim","pedag","outros"];
 const VEIC={bike:{cons:0,desg:.03},moto:{cons:35,desg:.12},carro:{cons:11,desg:.25},util:{cons:8,desg:.38},caminhao:{cons:4,desg:.9}};
 const DEF_CFG={nome:"",gas:6.29,cons:11,desg:.25,ruimPct:2.2,metaPct:2.8,ruimKm:1.4,metaKm:1.8,ruimHora:25,metaHora:35,nav:"gmaps",tParada:3,veiculo:"carro",cidade:"",casa:"",trabalho:"",tema:"sistema",
-  alertOn:true,overlayOn:true,bubbleOn:false,alertWords:"rota, envio extra, envios extra, nova oferta, pacotes",alertApps:[],alertSecs:10};
+  alertOn:true,overlayOn:true,bubbleOn:false,abrirApp:false,qualquer:false,
+  lembNoite:true,lembNoiteH:"20:00",lembAntes:true,lembAntesMin:30,lembDia:false,lembDiaH:"10:50",alertWords:"rota, envio extra, envios extra, nova oferta, pacotes",alertApps:[],alertSecs:10};
 
 /* ================= estado e utilidades ================= */
 let items=[], cfg={...DEF_CFG}, view="inicio", hP="mes", hRef="", hTab="lanc";
@@ -189,10 +190,34 @@ function sums(from,to){
 }
 
 /* ================= gravação ================= */
-function persist(){ lsSet("rp_items",items); lsSet("rp_cfg",cfg); try{ Conta.autoBackup(); }catch(e){} }
+function persist(){ lsSet("rp_items",items); lsSet("rp_cfg",cfg); try{ Conta.autoBackup(); }catch(e){} syncLembretes(); }
 function saveDoc(o,quiet){ const i=items.findIndex(x=>x.id===o.id); if(i>=0) items[i]=o; else items.push(o); persist(); if(!quiet) renderAll(); }
 function delDoc(id){ const o=items.find(x=>x.id===id); if(o&&o.foto&&!items.some(x=>x!==o&&x.foto===o.foto)) Fotos.del(o.foto); items=items.filter(x=>x.id!==id); persist(); renderAll(); }
 function saveCfg(){ persist(); applyTema(); pushAlertCfg(); renderAll(); }
+
+/* ---------- lembretes da rota agendada (agendados no relógio do Android) ---------- */
+let lembTimer=null;
+function syncLembretes(){
+  if(!N) return;
+  clearTimeout(lembTimer);
+  lembTimer=setTimeout(()=>{
+    const now=Date.now(), L=[], at=(d,hhmm,menos)=>{ const [h,m]=String(hhmm||"").split(":").map(Number); if(isNaN(h)) return 0; const x=parse(d); x.setHours(h,m||0,0,0); return x.getTime()-(menos||0)*60000; };
+    agendas().filter(a=>(a.data||"")>=today()).forEach(a=>{
+      const det=[brl(num(a.valor)),a.pacotes?num(a.pacotes)+" pacotes":"",a.cd||"",a.hora?"saída "+a.hora:""].filter(Boolean).join(" · ");
+      if(cfg.lembNoite){ const t=at(addDays(a.data,-1),cfg.lembNoiteH); if(t>now) L.push({id:"n_"+a.id,quando:t,agenda:a.id,titulo:"Amanhã tem rota"+(a.hora?" às "+a.hora:""),texto:det+". Toque para ver."}); }
+      if(cfg.lembAntes&&a.hora){ const t=at(a.data,a.hora,num(cfg.lembAntesMin)); if(t>now) L.push({id:"a_"+a.id,quando:t,agenda:a.id,titulo:"Rota em "+cfg.lembAntesMin+" minutos",texto:det+". Toque para abrir e iniciar o cronômetro."}); }
+    });
+    const [dh,dm]=String(cfg.lembDiaH||"10:50").split(":").map(Number);
+    nat("setReminders",JSON.stringify({lembretes:L,diario:{on:!!cfg.lembDia,h:dh||0,m:dm||0}}));
+  },400);
+}
+function renderLembretes(){
+  $("#lembSet").hidden=!N; if(!N) return;
+  $("#lbNoite").checked=!!cfg.lembNoite; $("#lbNoiteH").value=cfg.lembNoiteH;
+  $("#lbAntes").checked=!!cfg.lembAntes; $("#lbAntesMin").value=String(cfg.lembAntesMin);
+  $("#lbDia").checked=!!cfg.lembDia; $("#lbDiaH").value=cfg.lembDiaH;
+  $("#lbExact").hidden=nat("canExactAlarms")!==false;
+}
 
 /* ================= tema ================= */
 const mqDark=window.matchMedia?matchMedia("(prefers-color-scheme: dark)"):null;
@@ -643,7 +668,7 @@ function renderHist(){
 
 /* ---------- Ajustes ---------- */
 function renderAjustes(){
-  Conta.renderConta();
+  Conta.renderConta(); renderLembretes();
   const set=(id,v)=>{ const e=$(id); if(e&&document.activeElement!==e) e.value=v; };
   set("#a_nome",cfg.nome); set("#a_nav",cfg.nav); set("#a_tParada",String(cfg.tParada)); set("#a_cidade",cfg.cidade);
   set("#a_veiculo",cfg.veiculo); set("#a_cons",fmtCfg(cfg.cons)); set("#a_gas",fmtCfg(cfg.gas)); const ck=custoKm(); $("#a_custoV").textContent=brl(ck.total)+"/km"; $("#a_custoS").textContent=ck.set?"combustível "+brl(ck.comb)+" + carro "+brl(ck.inv):"Toque para calcular o seu (hoje é só uma estimativa)";
@@ -664,6 +689,7 @@ function renderAlert(){
   $("#ovAccess").style.color=s.overlay?"var(--good)":"var(--bad)";
   $("#ovGrant").textContent=s.overlay?"Abrir":"Permitir";
   $("#ovOn").checked=!!cfg.overlayOn; $("#bbOn").checked=!!cfg.bubbleOn;
+  $("#alAbrir").checked=!!cfg.abrirApp; $("#alQualquer").checked=!!cfg.qualquer;
   if(document.activeElement!==$("#alWords")) $("#alWords").value=cfg.alertWords;
   $("#alSecs").value=String(cfg.alertSecs);
   const seen=s.seen||[];
@@ -696,7 +722,7 @@ function renderDiag(s){
 }
 function pushAlertCfg(){
   if(!N) return;
-  nat("setAlertConfig",JSON.stringify({enabled:!!cfg.alertOn,keywords:String(cfg.alertWords||"").split(",").map(s=>s.trim()).filter(Boolean),apps:cfg.alertApps||[],seconds:+cfg.alertSecs||10,ruimPct:num(cfg.ruimPct),metaPct:num(cfg.metaPct),ruimKm:num(cfg.ruimKm),metaKm:num(cfg.metaKm),ruimHora:num(cfg.ruimHora),metaHora:num(cfg.metaHora),gas:cfg.gas,cons:cfg.cons,custoKm:custoKm().total,overlay:!!cfg.overlayOn,bubble:!!cfg.bubbleOn}));
+  nat("setAlertConfig",JSON.stringify({enabled:!!cfg.alertOn,keywords:String(cfg.alertWords||"").split(",").map(s=>s.trim()).filter(Boolean),apps:cfg.alertApps||[],seconds:+cfg.alertSecs||10,ruimPct:num(cfg.ruimPct),metaPct:num(cfg.metaPct),ruimKm:num(cfg.ruimKm),metaKm:num(cfg.metaKm),ruimHora:num(cfg.ruimHora),metaHora:num(cfg.metaHora),gas:cfg.gas,cons:cfg.cons,custoKm:custoKm().total,overlay:!!cfg.overlayOn,bubble:!!cfg.bubbleOn,abrirApp:!!cfg.abrirApp,qualquer:!!cfg.qualquer}));
 }
 
 /* ================= folhas (telas que sobem) ================= */
@@ -745,7 +771,7 @@ function openForm(tipo,it,prefill){
   const fields=t.f.map(k=>{
     const f=F[k], id="f_"+k, val=it[k]??"";
     if(f.t==="select") return '<div class="fld'+(f.full?" full":"")+'"><label for="'+id+'">'+f.l+'</label><select id="'+id+'">'+f.opts.map(o=>'<option'+(o===val?" selected":"")+'>'+esc(o)+'</option>').join("")+'</select></div>';
-    const type=f.t==="date"?"date":"text", mode=f.t==="num"?' inputmode="decimal"':f.t==="int"?' inputmode="numeric"':'';
+    const type=f.t==="date"?"date":f.t==="time"?"time":"text", mode=f.t==="num"?' inputmode="decimal"':f.t==="int"?' inputmode="numeric"':'';
     return '<div class="fld'+(f.full?" full":"")+'"><label for="'+id+'">'+f.l+'</label><input id="'+id+'" type="'+type+'"'+mode+(f.list?' list="dl_'+k+'"':'')+
       ' value="'+esc(val)+'"'+(f.ph?' placeholder="'+esc(f.ph)+'"':'')+' autocomplete="off"></div>';
   }).join("");
@@ -1025,7 +1051,8 @@ window.__rota=function(type,data){
   try{
     if(type==="route"){ nat("stopAlarm"); closeSheet(); showDetect(data&&data.text||String(data||""),data&&data.app); }
     else if(type==="trip"){ Trip.refresh(); Trip.ui(); Trip.loop(); renderInicio(); if(data==="denied") toast("Sem a localização, o cronômetro conta só o tempo."); }
-    else if(type==="resume"){ renderAlert(); Conta.refresh(); Trip.refresh(); Trip.ui(); Trip.loop(); const p=nat("takePendingRoute"); if(p){ const j=JSON.parse(p); showDetect(j.text,j.app); } }
+    else if(type==="agenda"){ const a=items.find(x=>x.id===data); go("inicio"); if(a) openForm("agenda",a); }
+    else if(type==="resume"){ renderAlert(); renderLembretes(); Conta.refresh(); Trip.refresh(); Trip.ui(); Trip.loop(); const p=nat("takePendingRoute"); if(p){ const j=JSON.parse(p); showDetect(j.text,j.app); } }
   }catch(e){}
 };
 window.__appBack=function(){
@@ -1254,6 +1281,11 @@ $("#alGrant").onclick=()=>nat("openAlertAccess");
 $("#ovGrant").onclick=()=>nat("openOverlayPermission");
 $("#ovOn").onchange=e=>{ cfg.overlayOn=e.target.checked; saveCfg(); if(e.target.checked&&!(natJ("alertStatus")||{}).overlay) nat("openOverlayPermission"); };
 $("#bbOn").onchange=e=>{ cfg.bubbleOn=e.target.checked; saveCfg(); if(e.target.checked&&!(natJ("alertStatus")||{}).overlay) nat("openOverlayPermission"); };
+$("#alAbrir").onchange=e=>{ cfg.abrirApp=e.target.checked; saveCfg(); if(e.target.checked&&!(natJ("alertStatus")||{}).overlay){ toast("Para abrir o app sozinho, libere Aparecer sobre outros apps"); nat("openOverlayPermission"); } };
+$("#alQualquer").onchange=e=>{ cfg.qualquer=e.target.checked; saveCfg(); if(e.target.checked&&!(cfg.alertApps||[]).length) toast("Agora marque o app do Meli Extra em Só destes apps"); };
+[["#lbNoite","lembNoite",1],["#lbNoiteH","lembNoiteH"],["#lbAntes","lembAntes",1],["#lbAntesMin","lembAntesMin"],["#lbDia","lembDia",1],["#lbDiaH","lembDiaH"]].forEach(([id,k,chk])=>
+  $(id).addEventListener("change",e=>{ cfg[k]=chk?e.target.checked:(k==="lembAntesMin"?+e.target.value:e.target.value); saveCfg(); toast("Lembretes atualizados"); }));
+$("#lbExactBtn").onclick=()=>nat("openExactAlarmSettings");
 $("#alOn").onchange=e=>{ cfg.alertOn=e.target.checked; saveCfg(); };
 $("#alSecs").onchange=e=>{ cfg.alertSecs=+e.target.value; saveCfg(); };
 $("#alWords").onchange=e=>{ cfg.alertWords=e.target.value; saveCfg(); };
@@ -1271,6 +1303,6 @@ document.addEventListener("visibilitychange",()=>{ if(!document.hidden) window._
 /* ================= início ================= */
 items=lsGet("rp_items",[]); cfg={...DEF_CFG,...lsGet("rp_cfg",{})}; hRef=today();
 $("#ver").textContent="Rota Paga · versão "+(nat("version")||"web");
-applyTema(); pushAlertCfg(); Trip.boot(); renderAll(); onHash(); Conta.ui(); Conta.refresh();
+applyTema(); pushAlertCfg(); Trip.boot(); renderAll(); onHash(); Conta.ui(); Conta.refresh(); syncLembretes();
 setTimeout(()=>window.__rota("resume"),300);
 })();
