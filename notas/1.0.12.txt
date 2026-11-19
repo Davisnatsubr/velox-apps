@@ -1,0 +1,3 @@
+Velox Play / Pulso Play
+- Player nativo com FFmpeg: toca áudio AC3, E-AC3, DTS e TrueHD mesmo em aparelhos sem suporte.
+Este app é apenas um reprodutor (player): não fornece nem vende conteúdo.

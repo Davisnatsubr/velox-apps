@@ -189,6 +189,8 @@ class PlayerActivity : ComponentActivity() {
             .setReadTimeoutMs(20000)
         val msf = DefaultMediaSourceFactory(this).setDataSourceFactory(DefaultDataSource.Factory(this, http))
         val renderers = DefaultRenderersFactory(this).setEnableDecoderFallback(true)
+            // usa o decodificador do aparelho; se ele não tocar o áudio, entra o FFmpeg
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
         val p = ExoPlayer.Builder(this, renderers)
             .setMediaSourceFactory(msf)
             .setSeekBackIncrementMs(10000)

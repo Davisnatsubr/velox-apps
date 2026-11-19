@@ -93,4 +93,6 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.8.0")
     implementation("androidx.media3:media3-exoplayer-hls:1.8.0")
     implementation("androidx.media3:media3-ui:1.8.0")
+    // FFmpeg (o mesmo recurso do IBO): toca áudio AC3, E-AC3, DTS, TrueHD e outros mesmo em aparelho sem suporte
+    implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.8.0+1")
 }
