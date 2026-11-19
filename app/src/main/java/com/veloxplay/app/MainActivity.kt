@@ -48,6 +48,8 @@ class MainActivity : ComponentActivity() {
     private var customCallback: WebChromeClient.CustomViewCallback? = null
     private lateinit var chrome: WebChromeClient
     private var lastBack = 0L
+    private var autoRetries = 0
+    private var pageFailed = false
     private val updater by lazy { Updater(this) { js -> runOnUiThread { web.evaluateJavascript(js, null) } } }
     private val siteHost: String by lazy { Uri.parse(BuildConfig.SITE_URL).host ?: "" }
 
@@ -108,8 +110,25 @@ class MainActivity : ComponentActivity() {
                 return try { startActivity(Intent(Intent.ACTION_VIEW, u)); true } catch (e: Exception) { true }
             }
 
+            override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                if (url?.startsWith("about:") != true) pageFailed = false
+            }
+
+            override fun onPageFinished(view: WebView, url: String?) {
+                if (url?.startsWith("about:") == true) return
+                if (!pageFailed) { autoRetries = 0; sendSize() }
+            }
+
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-                if (request.isForMainFrame) showError()
+                if (!request.isForMainFrame) return
+                pageFailed = true
+                // falha passageira (rede acordando, Wi-Fi trocando): tenta de novo sozinho antes de mostrar o erro
+                if (autoRetries < 2) {
+                    autoRetries++
+                    view.stopLoading()
+                    view.loadUrl("about:blank")
+                    root.postDelayed({ web.loadUrl(BuildConfig.SITE_URL) }, 2500L * autoRetries)
+                } else showError()
             }
         }
 
@@ -142,6 +161,11 @@ class MainActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() = onBack()
         })
+
+        // janela mudou de tamanho (girou a tela, janela redimensionada no PC/Chromebook): o site recalcula a escala
+        web.addOnLayoutChangeListener { _, l, t, r, b, ol, ot, orr, ob ->
+            if (r - l != orr - ol || b - t != ob - ot) sendSize()
+        }
 
         if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl(BuildConfig.SITE_URL)
         web.requestFocus()
@@ -196,7 +220,8 @@ class MainActivity : ComponentActivity() {
                 root.removeView(box)
                 errorView = null
                 web.visibility = View.VISIBLE
-                web.reload()
+                autoRetries = 0
+                web.loadUrl(BuildConfig.SITE_URL) // carrega do zero (o reload repetia a página que falhou)
                 web.requestFocus()
             }
         }
@@ -206,6 +231,17 @@ class MainActivity : ComponentActivity() {
         web.visibility = View.INVISIBLE
         errorView = box
         btn.requestFocus()
+    }
+
+    /** Tamanho da área do site em "pixels de site" (dp). */
+    private fun cssSize(): String {
+        val d = resources.displayMetrics.density
+        return "${Math.round(web.width / d)},${Math.round(web.height / d)}"
+    }
+
+    private fun sendSize() {
+        if (web.width <= 0) return
+        web.evaluateJavascript("window.__appResize && window.__appResize(${cssSize()})", null)
     }
 
     private fun openPlayer(json: String) {
@@ -242,6 +278,12 @@ class MainActivity : ComponentActivity() {
 
         @JavascriptInterface
         fun isTv(): Boolean = this@MainActivity.isTv
+
+        @JavascriptInterface
+        fun viewSize(): String = if (web.width > 0) cssSize() else {
+            val m = resources.displayMetrics
+            "${Math.round(m.widthPixels / m.density)},${Math.round(m.heightPixels / m.density)}"
+        }
 
         @JavascriptInterface
         fun exit() { runOnUiThread { finish() } }

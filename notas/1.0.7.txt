@@ -1,0 +1,5 @@
+Velox Play / Pulso Play 1.0.7
+- Corrige a tela que ficava cortada (maior que a janela) depois de "Tentar de novo" ou ao mudar o tamanho da janela.
+- Se a internet falhar ao abrir, o app tenta de novo sozinho antes de mostrar o aviso.
+- Ajustes de proporção para celular, tablet e Android TV.
+Este app é apenas um reprodutor (player): não fornece nem vende conteúdo.
