@@ -1,0 +1,5 @@
+Velox Play 1.0.9
+- Depois de entrar, o app fica deitado no celular e no tablet, com a tela inteira proporcional.
+- Corrige a tela cortada depois de "Tentar de novo" e tenta reconectar sozinho.
+- Funciona em mais aparelhos (Android TV, tablets e Chromebooks).
+Este app é apenas um reprodutor (player): não fornece nem vende conteúdo.

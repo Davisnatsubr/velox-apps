@@ -3,6 +3,7 @@ package com.veloxplay.app
 import android.annotation.SuppressLint
 import android.app.UiModeManager
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
@@ -283,6 +284,21 @@ class MainActivity : ComponentActivity() {
         fun viewSize(): String = if (web.width > 0) cssSize() else {
             val m = resources.displayMetrics
             "${Math.round(m.widthPixels / m.density)},${Math.round(m.heightPixels / m.density)}"
+        }
+
+        /** "landscape" = deitado (depois do login), "portrait" = em pé no celular (login). Na TV não faz nada. */
+        @JavascriptInterface
+        fun orientation(mode: String) {
+            if (this@MainActivity.isTv) return
+            runOnUiThread {
+                val tablet = resources.configuration.smallestScreenWidthDp >= 600
+                val want = when (mode) {
+                    "landscape" -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                    "portrait" -> if (tablet) ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED else ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                    else -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                }
+                if (requestedOrientation != want) requestedOrientation = want
+            }
         }
 
         @JavascriptInterface
