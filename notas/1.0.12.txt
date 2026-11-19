@@ -1,0 +1,5 @@
+Velox Play / Pulso Play 1.0.12
+- Canais ao vivo e jogos abrem direto no player nativo do app.
+- Troca de canal dentro do player: cima/baixo ou CH+/CH- no controle, OK (ou o botão "Canais") abre a lista.
+- Player com FFmpeg: toca áudio AC3, E-AC3, DTS e TrueHD mesmo em aparelhos sem suporte.
+Este app é apenas um reprodutor (player): não fornece nem vende conteúdo.

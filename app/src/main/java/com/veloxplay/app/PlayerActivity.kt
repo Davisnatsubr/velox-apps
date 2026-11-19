@@ -13,6 +13,10 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.webkit.CookieManager
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.ListView
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -37,6 +41,11 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.concurrent.Executors
 
 /**
  * Player nativo (ExoPlayer). Toca HLS, TS, MP4 e MKV usando os decodificadores do aparelho
@@ -55,6 +64,10 @@ class PlayerActivity : ComponentActivity() {
         const val EXTRA_POS = "pos"
         const val EXTRA_DUR = "dur"
         const val EXTRA_ENDED = "ended"
+        const val EXTRA_EXT = "ext"
+        const val EXTRA_API = "api"
+        const val EXTRA_INDEX = "index"
+        const val EXTRA_CHANNELS = "channels"
         private val RESIZE = intArrayOf(
             AspectRatioFrameLayout.RESIZE_MODE_FIT,
             AspectRatioFrameLayout.RESIZE_MODE_FILL,
@@ -79,6 +92,18 @@ class PlayerActivity : ComponentActivity() {
     private var resizeIdx = 0
     private val handler = Handler(Looper.getMainLooper())
 
+    // lista de canais do ao vivo (troca de canal dentro do player)
+    private data class Ch(val id: String, val name: String)
+    private val channels = mutableListOf<Ch>()
+    private var chIdx = 0
+    private var zapToken = 0
+    private var liveExt = "m3u8"
+    private var apiUrl = ""
+    private val io = Executors.newSingleThreadExecutor()
+    private lateinit var titleView: TextView
+    private lateinit var osd: TextView
+    private var listPanel: ListView? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -86,6 +111,13 @@ class PlayerActivity : ComponentActivity() {
         startPos = if (live) 0L else intent.getLongExtra(EXTRA_START, 0L)
         intent.getStringExtra(EXTRA_URL)?.takeIf { it.isNotEmpty() }?.let { urls.add(it) }
         intent.getStringExtra(EXTRA_URL2)?.takeIf { it.isNotEmpty() && it !in urls }?.let { urls.add(it) }
+        liveExt = intent.getStringExtra(EXTRA_EXT)?.takeIf { it == "ts" || it == "m3u8" } ?: "m3u8"
+        apiUrl = intent.getStringExtra(EXTRA_API) ?: ""
+        try {
+            val a = JSONArray(intent.getStringExtra(EXTRA_CHANNELS) ?: "")
+            for (i in 0 until a.length()) a.optJSONObject(i)?.let { o -> channels.add(Ch(o.optString("id"), o.optString("name"))) }
+        } catch (_: Exception) {}
+        chIdx = intent.getIntExtra(EXTRA_INDEX, 0).coerceIn(0, (channels.size - 1).coerceAtLeast(0))
         resizeIdx = getSharedPreferences("player", Context.MODE_PRIVATE).getInt("resize", 0).coerceIn(0, 2)
 
         val frame = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
@@ -111,10 +143,11 @@ class PlayerActivity : ComponentActivity() {
             background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0xCC000000.toInt(), 0x00000000))
         }
         val titles = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        titles.addView(TextView(this).apply {
-            text = intent.getStringExtra(EXTRA_TITLE) ?: ""
+        titleView = TextView(this).apply {
+            text = if (hasChannels()) chLabel(chIdx) else intent.getStringExtra(EXTRA_TITLE) ?: ""
             setTextColor(Color.WHITE); textSize = 20f; maxLines = 1
-        })
+        }
+        titles.addView(titleView)
         val sub = intent.getStringExtra(EXTRA_SUB) ?: ""
         if (sub.isNotEmpty() || live) titles.addView(TextView(this).apply {
             text = if (live) "● AO VIVO" + (if (sub.isNotEmpty()) "  ·  $sub" else "") else sub
@@ -130,6 +163,7 @@ class PlayerActivity : ComponentActivity() {
             setOnClickListener { cycleResize() }
             setOnFocusChangeListener { v, f -> (v.background as GradientDrawable).setColor(if (f) 0xAAFFFFFF.toInt() else 0x33FFFFFF) ; (v as TextView).setTextColor(if (f) Color.BLACK else Color.WHITE) }
         }
+        if (hasChannels()) top.addView(pill("☰ Canais") { openList() }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { rightMargin = dp(10) })
         top.addView(aspectBtn)
         updateAspectLabel()
         frame.addView(top, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP))
@@ -142,13 +176,114 @@ class PlayerActivity : ComponentActivity() {
         }
         frame.addView(errorText, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
 
+        // nome do canal ao trocar (aparece uns segundos no canto)
+        osd = TextView(this).apply {
+            setTextColor(Color.WHITE); textSize = 22f
+            setPadding(dp(22), dp(12), dp(22), dp(12))
+            background = GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(0xCC000000.toInt()) }
+            visibility = View.GONE
+        }
+        frame.addView(osd, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply { topMargin = dp(24); rightMargin = dp(24) })
+
+        if (hasChannels()) {
+            val lv = ListView(this).apply {
+                setBackgroundColor(0xE6101420.toInt())
+                divider = null
+                isFocusable = true
+                visibility = View.GONE
+                choiceMode = ListView.CHOICE_MODE_SINGLE
+                setSelector(GradientDrawable().apply { setColor(0xFF2B48D8.toInt()) })
+                adapter = object : ArrayAdapter<String>(this@PlayerActivity, android.R.layout.simple_list_item_1, channels.indices.map { chLabel(it) }) {
+                    override fun getView(position: Int, convertView: View?, parent: ViewGroup): View =
+                        (super.getView(position, convertView, parent) as TextView).apply {
+                            setTextColor(Color.WHITE); textSize = 17f; maxLines = 1
+                            setPadding(dp(20), dp(12), dp(20), dp(12))
+                            setTypeface(null, if (position == chIdx) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+                        }
+                }
+                onItemClickListener = AdapterView.OnItemClickListener { _, _, pos, _ -> closeList(); if (pos != chIdx) playChannel(pos) }
+            }
+            frame.addView(lv, FrameLayout.LayoutParams(dp(380), ViewGroup.LayoutParams.MATCH_PARENT, Gravity.START))
+            listPanel = lv
+        }
+
         view.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { v -> top.visibility = v })
         setContentView(frame)
         hideSystemBars()
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() = finishWithResult()
+            override fun handleOnBackPressed() { if (listPanel?.visibility == View.VISIBLE) closeList() else finishWithResult() }
         })
+    }
+
+    private fun hasChannels() = live && channels.size > 1 && apiUrl.isNotEmpty()
+
+    private fun chLabel(i: Int) = "${i + 1}. ${channels.getOrNull(i)?.name ?: ""}"
+
+    private fun pill(label: String, onClick: () -> Unit) = TextView(this).apply {
+        text = label
+        setTextColor(Color.WHITE); textSize = 15f
+        setPadding(dp(16), dp(8), dp(16), dp(8))
+        background = GradientDrawable().apply { cornerRadius = dp(20).toFloat(); setColor(0x33FFFFFF) }
+        isFocusable = true; isClickable = true
+        setOnClickListener { onClick() }
+        setOnFocusChangeListener { v, f -> (v.background as GradientDrawable).setColor(if (f) 0xAAFFFFFF.toInt() else 0x33FFFFFF); (v as TextView).setTextColor(if (f) Color.BLACK else Color.WHITE) }
+    }
+
+    private fun showOsd(t: String) {
+        osd.text = t; osd.visibility = View.VISIBLE
+        handler.removeCallbacks(hideOsd); handler.postDelayed(hideOsd, 3500)
+    }
+    private val hideOsd = Runnable { osd.visibility = View.GONE }
+
+    private fun openList() {
+        val lv = listPanel ?: return
+        view.hideController()
+        (lv.adapter as ArrayAdapter<*>).notifyDataSetChanged()
+        lv.visibility = View.VISIBLE
+        lv.setSelection(chIdx); lv.setItemChecked(chIdx, true)
+        lv.requestFocus()
+    }
+
+    private fun closeList() { listPanel?.visibility = View.GONE; view.requestFocus() }
+
+    private fun zap(d: Int) {
+        if (!hasChannels()) return
+        playChannel((chIdx + d + channels.size) % channels.size)
+    }
+
+    /** Pede ao site o endereço do canal (com a sessão do app) e troca o vídeo. */
+    private fun playChannel(i: Int) {
+        val ch = channels.getOrNull(i) ?: return
+        chIdx = i
+        val token = ++zapToken
+        titleView.text = chLabel(i)
+        showOsd(chLabel(i))
+        errorText.visibility = View.GONE
+        player?.stop()
+        io.execute {
+            val r = try {
+                val c = URL("$apiUrl?action=url&type=live&id=${ch.id}&ext=$liveExt&native=1").openConnection() as HttpURLConnection
+                c.connectTimeout = 12000; c.readTimeout = 15000
+                CookieManager.getInstance().getCookie(apiUrl)?.let { c.setRequestProperty("Cookie", it) }
+                c.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) VeloxApp/" + BuildConfig.VERSION_NAME)
+                val body = (if (c.responseCode in 200..299) c.inputStream else c.errorStream).bufferedReader().use { it.readText() }
+                JSONObject(body)
+            } catch (e: Exception) { null }
+            runOnUiThread {
+                if (token != zapToken || isFinishing) return@runOnUiThread
+                val u = r?.optString("url").orEmpty()
+                if (u.isEmpty()) {
+                    errorText.text = (r?.optString("error")?.takeIf { it.isNotEmpty() } ?: "Não foi possível abrir este canal.") + "\n\nUse cima/baixo para trocar de canal."
+                    errorText.visibility = View.VISIBLE
+                    return@runOnUiThread
+                }
+                urls.clear(); urlIdx = 0; liveRetries = 0
+                urls.add(URL(URL(apiUrl), u).toString())
+                r?.optString("url2")?.takeIf { it.isNotEmpty() && it != "null" }?.let { urls.add(URL(URL(apiUrl), it).toString()) }
+                load(urls[0], 0L)
+            }
+        }
     }
 
     private fun dp(v: Int): Int = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics).toInt()
@@ -260,6 +395,8 @@ class PlayerActivity : ComponentActivity() {
         else -> "Não foi possível reproduzir (${e.errorCodeName})."
     }
 
+    override fun onDestroy() { io.shutdownNow(); super.onDestroy() }
+
     private fun releasePlayer() {
         val p = player ?: return
         lastPos = p.currentPosition
@@ -278,7 +415,8 @@ class PlayerActivity : ComponentActivity() {
         setResult(RESULT_OK, Intent()
             .putExtra(EXTRA_POS, if (live) 0L else lastPos)
             .putExtra(EXTRA_DUR, if (live) 0L else lastDur)
-            .putExtra(EXTRA_ENDED, ended))
+            .putExtra(EXTRA_ENDED, ended)
+            .putExtra(EXTRA_INDEX, chIdx))
         finish()
     }
 
@@ -287,6 +425,19 @@ class PlayerActivity : ComponentActivity() {
         if (event.action == KeyEvent.ACTION_DOWN && (event.keyCode == KeyEvent.KEYCODE_MENU || event.keyCode == KeyEvent.KEYCODE_SETTINGS)) {
             cycleResize(); return true
         }
+        // ao vivo com lista: cima/baixo e CH+/CH- trocam de canal; OK abre a lista de canais
+        if (event.action == KeyEvent.ACTION_DOWN && hasChannels() && listPanel?.visibility != View.VISIBLE) {
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_CHANNEL_UP -> { zap(1); return true }
+                KeyEvent.KEYCODE_CHANNEL_DOWN -> { zap(-1); return true }
+            }
+            if (!view.isControllerFullyVisible && !aspectBtn.isFocused) when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_UP -> { zap(-1); return true }
+                KeyEvent.KEYCODE_DPAD_DOWN -> { zap(1); return true }
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { openList(); return true }
+            }
+        }
+        if (listPanel?.visibility == View.VISIBLE) return super.dispatchKeyEvent(event)
         // qualquer tecla com os controles escondidos só mostra os controles
         if (event.action == KeyEvent.ACTION_DOWN && !view.isControllerFullyVisible && event.keyCode != KeyEvent.KEYCODE_BACK
             && event.keyCode != KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE && !aspectBtn.isFocused) {

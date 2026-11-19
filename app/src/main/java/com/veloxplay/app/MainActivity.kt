@@ -66,7 +66,8 @@ class MainActivity : ComponentActivity() {
         val pos = (d?.getLongExtra(PlayerActivity.EXTRA_POS, 0L) ?: 0L) / 1000.0
         val dur = (d?.getLongExtra(PlayerActivity.EXTRA_DUR, 0L) ?: 0L).coerceAtLeast(0L) / 1000.0
         val ended = d?.getBooleanExtra(PlayerActivity.EXTRA_ENDED, false) ?: false
-        web.evaluateJavascript("window.__appPlayerDone && window.__appPlayerDone($pos, $dur, $ended)", null)
+        val idx = d?.getIntExtra(PlayerActivity.EXTRA_INDEX, 0) ?: 0
+        web.evaluateJavascript("window.__appPlayerDone && window.__appPlayerDone($pos, $dur, $ended, $idx)", null)
         web.requestFocus()
     }
 
@@ -256,6 +257,10 @@ class MainActivity : ComponentActivity() {
             .putExtra(PlayerActivity.EXTRA_SUB, o.optString("sub"))
             .putExtra(PlayerActivity.EXTRA_LIVE, o.optBoolean("live"))
             .putExtra(PlayerActivity.EXTRA_START, o.optLong("start"))
+            .putExtra(PlayerActivity.EXTRA_EXT, o.optString("ext"))
+            .putExtra(PlayerActivity.EXTRA_API, o.optString("api"))
+            .putExtra(PlayerActivity.EXTRA_INDEX, o.optInt("index"))
+            .putExtra(PlayerActivity.EXTRA_CHANNELS, o.optJSONArray("channels")?.toString() ?: "")
         playerLauncher.launch(i)
     }
 
