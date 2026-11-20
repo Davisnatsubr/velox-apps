@@ -142,6 +142,8 @@ class PlayerActivity : ComponentActivity() {
             setPadding(dp(24), dp(16), dp(24), dp(16))
             background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0xCC000000.toInt(), 0x00000000))
         }
+        // botão voltar na tela (celular sem botão físico)
+        top.addView(pill("←  Voltar") { finishWithResult() }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { rightMargin = dp(18) })
         val titles = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         titleView = TextView(this).apply {
             text = if (hasChannels()) chLabel(chIdx) else intent.getStringExtra(EXTRA_TITLE) ?: ""

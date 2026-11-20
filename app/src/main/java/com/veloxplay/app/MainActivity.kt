@@ -74,6 +74,8 @@ class MainActivity : ComponentActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // celular e tablet: o app fica sempre deitado (como o Spark), inclusive no login
+        if (!isTv) requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         root = FrameLayout(this)
         root.setBackgroundColor(ContextCompat.getColor(this, R.color.brand_bg))
         web = WebView(this)
@@ -296,10 +298,9 @@ class MainActivity : ComponentActivity() {
         fun orientation(mode: String) {
             if (this@MainActivity.isTv) return
             runOnUiThread {
-                val tablet = resources.configuration.smallestScreenWidthDp >= 600
-                val want = when (mode) {
+                                val want = when (mode) {
                     "landscape" -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                    "portrait" -> if (tablet) ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED else ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                    "portrait" -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE // sempre deitado
                     else -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
                 }
                 if (requestedOrientation != want) requestedOrientation = want
