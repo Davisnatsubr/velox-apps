@@ -1,0 +1,5 @@
+Velox Play / Pulso Play 1.0.14
+- Canais ao vivo carregam na mini tela do app (o app libera os vídeos para o player, como no Spark).
+- O visual do app atualiza sozinho quando o site muda.
+- Player de filmes e séries com a barra do topo no modelo novo: Voltar, título, legendas, áudio e formato da tela.
+Este app é apenas um reprodutor (player): não fornece nem vende conteúdo.

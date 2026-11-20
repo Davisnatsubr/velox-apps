@@ -18,6 +18,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -35,6 +36,9 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import org.json.JSONObject
+import java.io.ByteArrayInputStream
+import java.net.HttpURLConnection
+import java.net.URL
 
 /**
  * Tela principal: o site (Velox ou Pulso) dentro de um WebView.
@@ -123,6 +127,17 @@ class MainActivity : ComponentActivity() {
                 if (!pageFailed) { autoRetries = 0; sendSize() }
             }
 
+            /* Como o Spark: os vídeos do ao vivo (HLS/TS) vêm de outro servidor, que não manda permissão (CORS)
+               para o navegador ler. O app busca esses arquivos ele mesmo e devolve já com a permissão. */
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                val u = request.url
+                if (u.host == siteHost || (u.scheme != "http" && u.scheme != "https")) return null
+                val origin = request.requestHeaders.entries.firstOrNull { it.key.equals("Origin", true) }?.value
+                if (request.method.equals("OPTIONS", true)) return corsPreflight(origin)
+                if (origin == null || !request.method.equals("GET", true)) return null // imagens e páginas seguem normais
+                return try { corsFetch(u.toString(), request.requestHeaders, origin) } catch (e: Exception) { null }
+            }
+
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                 if (!request.isForMainFrame) return
                 pageFailed = true
@@ -131,7 +146,7 @@ class MainActivity : ComponentActivity() {
                     autoRetries++
                     view.stopLoading()
                     view.loadUrl("about:blank")
-                    root.postDelayed({ web.loadUrl(BuildConfig.SITE_URL) }, 2500L * autoRetries)
+                    root.postDelayed({ loadSite() }, 2500L * autoRetries)
                 } else showError()
             }
         }
@@ -171,8 +186,63 @@ class MainActivity : ComponentActivity() {
             if (r - l != orr - ol || b - t != ob - ot) sendSize()
         }
 
-        if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl(BuildConfig.SITE_URL)
+        if (savedInstanceState != null) web.restoreState(savedInstanceState) else loadSite()
         web.requestFocus()
+    }
+
+    private fun corsHeaders(origin: String?) = mutableMapOf(
+        "Access-Control-Allow-Origin" to (origin ?: "*"),
+        "Access-Control-Allow-Credentials" to "true",
+        "Access-Control-Allow-Methods" to "GET, HEAD, OPTIONS",
+        "Access-Control-Allow-Headers" to "*",
+        "Access-Control-Expose-Headers" to "*",
+        "Access-Control-Max-Age" to "86400",
+    )
+
+    private fun corsPreflight(origin: String?) =
+        WebResourceResponse("text/plain", "utf-8", 204, "No Content", corsHeaders(origin), ByteArrayInputStream(ByteArray(0)))
+
+    private fun corsFetch(start: String, reqHeaders: Map<String, String>, origin: String): WebResourceResponse {
+        var url = start
+        var c: HttpURLConnection
+        var hops = 0
+        while (true) { // segue redirecionamentos (inclusive http <-> https), como o servidor do canal costuma fazer
+            c = URL(url).openConnection() as HttpURLConnection
+            c.instanceFollowRedirects = false
+            c.connectTimeout = 15000; c.readTimeout = 30000
+            for ((k, v) in reqHeaders) if (!k.equals("Origin", true) && !k.equals("Referer", true) && !k.equals("Host", true) && !k.equals("Accept-Encoding", true)) c.setRequestProperty(k, v)
+            val code = c.responseCode
+            if (code in 300..399 && hops < 8) {
+                val loc = c.getHeaderField("Location") ?: break
+                url = URL(URL(url), loc).toString(); hops++; c.disconnect(); continue
+            }
+            break
+        }
+        val code = c.responseCode
+        val ctype = c.contentType ?: "application/octet-stream"
+        val mime = ctype.substringBefore(';').trim()
+        val headers = corsHeaders(origin)
+        for ((k, v) in c.headerFields) if (k != null && v.isNotEmpty() && !k.startsWith("Access-Control", true)
+            && !k.equals("Content-Encoding", true) && !k.equals("Transfer-Encoding", true) && !k.equals("Content-Length", true)) headers[k] = v.joinToString(", ")
+        val body = if (code >= 400) c.errorStream ?: ByteArrayInputStream(ByteArray(0)) else c.inputStream
+        val isM3u8 = mime.contains("mpegurl", true) || url.substringBefore('?').endsWith(".m3u8", true)
+        // a lista HLS tem endereços relativos ao servidor final (depois do redirecionamento): deixa todos completos
+        val stream = if (isM3u8 && code < 400) {
+            val base = URL(url)
+            val txt = body.bufferedReader().use { it.readText() }
+            val fixed = txt.lineSequence().joinToString("\n") { line ->
+                val t = line.trim()
+                when {
+                    t.isEmpty() -> line
+                    t.startsWith("#") -> Regex("URI=\"([^\"]+)\"").replace(line) { m -> "URI=\"" + URL(base, m.groupValues[1]) + "\"" }
+                    else -> URL(base, t).toString()
+                }
+            }
+            ByteArrayInputStream(fixed.toByteArray())
+        } else body
+        val reason = c.responseMessage?.takeIf { it.isNotBlank() } ?: if (code < 400) "OK" else "Error"
+        val charset = Regex("charset=([^;]+)", RegexOption.IGNORE_CASE).find(ctype)?.groupValues?.get(1)?.trim()
+        return WebResourceResponse(if (isM3u8) "application/vnd.apple.mpegurl" else mime, charset, code, reason, headers, stream)
     }
 
     private fun onBack() {
@@ -225,7 +295,7 @@ class MainActivity : ComponentActivity() {
                 errorView = null
                 web.visibility = View.VISIBLE
                 autoRetries = 0
-                web.loadUrl(BuildConfig.SITE_URL) // carrega do zero (o reload repetia a página que falhou)
+                loadSite() // carrega do zero (o reload repetia a página que falhou)
                 web.requestFocus()
             }
         }
@@ -238,6 +308,9 @@ class MainActivity : ComponentActivity() {
     }
 
     /** Tamanho da área do site em "pixels de site" (dp). */
+    /** Abre o site pedindo sempre a versão nova da página (o visual atualiza sem reinstalar o app). */
+    private fun loadSite() = web.loadUrl(BuildConfig.SITE_URL, mapOf("Cache-Control" to "no-cache", "Pragma" to "no-cache"))
+
     private fun cssSize(): String {
         val d = resources.displayMetrics.density
         return "${Math.round(web.width / d)},${Math.round(web.height / d)}"

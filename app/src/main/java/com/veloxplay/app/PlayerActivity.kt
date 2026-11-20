@@ -18,6 +18,7 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.ListView
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -41,6 +42,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import androidx.media3.ui.TrackSelectionDialogBuilder
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -125,7 +127,7 @@ class PlayerActivity : ComponentActivity() {
             useController = true
             controllerShowTimeoutMs = 4000
             controllerAutoShow = true
-            setShowSubtitleButton(true)
+            setShowSubtitleButton(false) // legenda e áudio ficam na barra de cima (como no Spark)
             setShowNextButton(false)
             setShowPreviousButton(false)
             setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS)
@@ -135,39 +137,40 @@ class PlayerActivity : ComponentActivity() {
         }
         frame.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
 
-        // barra de cima: título + botão de formato da tela (aparece junto com os controles)
+        // barra de cima no modelo do Spark: "← Voltar" | título no centro | legenda, áudio e formato da tela
         top = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(24), dp(16), dp(24), dp(16))
+            setPadding(dp(14), dp(10), dp(18), dp(10))
             background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0xCC000000.toInt(), 0x00000000))
         }
-        // botão voltar na tela (celular sem botão físico)
-        top.addView(pill("←  Voltar") { finishWithResult() }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { rightMargin = dp(18) })
-        val titles = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val back = TextView(this).apply {
+            text = "←   Voltar"
+            setTextColor(Color.WHITE); textSize = 16f
+            setPadding(dp(12), dp(8), dp(14), dp(8))
+            isFocusable = true; isClickable = true
+            background = focusBg()
+            setOnClickListener { finishWithResult() }
+        }
+        top.addView(back)
+        val titles = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
         titleView = TextView(this).apply {
             text = if (hasChannels()) chLabel(chIdx) else intent.getStringExtra(EXTRA_TITLE) ?: ""
-            setTextColor(Color.WHITE); textSize = 20f; maxLines = 1
+            setTextColor(Color.WHITE); textSize = 19f; maxLines = 1; gravity = Gravity.CENTER
+            ellipsize = android.text.TextUtils.TruncateAt.END
         }
         titles.addView(titleView)
         val sub = intent.getStringExtra(EXTRA_SUB) ?: ""
         if (sub.isNotEmpty() || live) titles.addView(TextView(this).apply {
             text = if (live) "● AO VIVO" + (if (sub.isNotEmpty()) "  ·  $sub" else "") else sub
-            setTextColor(if (live) 0xFFFF4D6D.toInt() else 0xFFB8C0D0.toInt()); textSize = 14f; maxLines = 1
+            setTextColor(if (live) 0xFFFF4D6D.toInt() else 0xFFB8C0D0.toInt()); textSize = 13f; maxLines = 1; gravity = Gravity.CENTER
         })
-        top.addView(titles, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        aspectBtn = TextView(this).apply {
-            setTextColor(Color.WHITE); textSize = 15f
-            setPadding(dp(16), dp(8), dp(16), dp(8))
-            background = GradientDrawable().apply { cornerRadius = dp(20).toFloat(); setColor(0x33FFFFFF) }
-            isFocusable = true
-            isClickable = true
-            setOnClickListener { cycleResize() }
-            setOnFocusChangeListener { v, f -> (v.background as GradientDrawable).setColor(if (f) 0xAAFFFFFF.toInt() else 0x33FFFFFF) ; (v as TextView).setTextColor(if (f) Color.BLACK else Color.WHITE) }
-        }
-        if (hasChannels()) top.addView(pill("☰ Canais") { openList() }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { rightMargin = dp(10) })
-        top.addView(aspectBtn)
-        updateAspectLabel()
+        top.addView(titles, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(12); rightMargin = dp(12) })
+        if (hasChannels()) top.addView(pill("☰ Canais") { openList() }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { rightMargin = dp(8) })
+        top.addView(iconBtn(androidx.media3.ui.R.drawable.exo_styled_controls_subtitle_off, "Legendas") { pickTrack(C.TRACK_TYPE_TEXT, "Legendas") })
+        top.addView(iconBtn(androidx.media3.ui.R.drawable.exo_styled_controls_audiotrack, "Áudio") { pickTrack(C.TRACK_TYPE_AUDIO, "Áudio") })
+        aspectBtn = TextView(this).apply { visibility = View.GONE } // o formato agora é o ícone abaixo (o texto aparece como aviso)
+        top.addView(iconBtn(androidx.media3.ui.R.drawable.exo_styled_controls_fullscreen_enter, "Formato da tela") { cycleResize() })
         frame.addView(top, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP))
 
         errorText = TextView(this).apply {
@@ -216,6 +219,35 @@ class PlayerActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { if (listPanel?.visibility == View.VISIBLE) closeList() else finishWithResult() }
         })
+    }
+
+    /** Fundo que acende com o foco do controle remoto (redondo, discreto). */
+    private fun focusBg() = android.graphics.drawable.StateListDrawable().apply {
+        addState(intArrayOf(android.R.attr.state_focused), GradientDrawable().apply { cornerRadius = dp(22).toFloat(); setColor(0x55FFFFFF) })
+        addState(intArrayOf(android.R.attr.state_pressed), GradientDrawable().apply { cornerRadius = dp(22).toFloat(); setColor(0x33FFFFFF) })
+        addState(intArrayOf(), GradientDrawable().apply { cornerRadius = dp(22).toFloat(); setColor(Color.TRANSPARENT) })
+    }
+
+    private fun iconBtn(res: Int, desc: String, onClick: () -> Unit) = ImageView(this).apply {
+        setImageResource(res)
+        contentDescription = desc
+        setColorFilter(Color.WHITE)
+        setPadding(dp(10), dp(10), dp(10), dp(10))
+        isFocusable = true; isClickable = true
+        background = focusBg()
+        setOnClickListener { onClick() }
+        layoutParams = LinearLayout.LayoutParams(dp(46), dp(46)).apply { leftMargin = dp(6) }
+    }
+
+    /** Escolha de faixa de áudio ou legenda (lista do próprio ExoPlayer). */
+    private fun pickTrack(type: Int, title: String) {
+        val p = player ?: return
+        val has = p.currentTracks.groups.any { it.type == type }
+        if (!has) { Toast.makeText(this, if (type == C.TRACK_TYPE_TEXT) "Este vídeo não tem legendas." else "Este vídeo tem só um áudio.", Toast.LENGTH_SHORT).show(); return }
+        TrackSelectionDialogBuilder(this, title, p, type)
+            .setAllowAdaptiveSelections(false)
+            .setShowDisableOption(type == C.TRACK_TYPE_TEXT)
+            .build().show()
     }
 
     private fun hasChannels() = live && channels.size > 1 && apiUrl.isNotEmpty()
@@ -433,7 +465,7 @@ class PlayerActivity : ComponentActivity() {
                 KeyEvent.KEYCODE_CHANNEL_UP -> { zap(1); return true }
                 KeyEvent.KEYCODE_CHANNEL_DOWN -> { zap(-1); return true }
             }
-            if (!view.isControllerFullyVisible && !aspectBtn.isFocused) when (event.keyCode) {
+            if (!view.isControllerFullyVisible && !top.hasFocus()) when (event.keyCode) {
                 KeyEvent.KEYCODE_DPAD_UP -> { zap(-1); return true }
                 KeyEvent.KEYCODE_DPAD_DOWN -> { zap(1); return true }
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { openList(); return true }
@@ -442,7 +474,7 @@ class PlayerActivity : ComponentActivity() {
         if (listPanel?.visibility == View.VISIBLE) return super.dispatchKeyEvent(event)
         // qualquer tecla com os controles escondidos só mostra os controles
         if (event.action == KeyEvent.ACTION_DOWN && !view.isControllerFullyVisible && event.keyCode != KeyEvent.KEYCODE_BACK
-            && event.keyCode != KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE && !aspectBtn.isFocused) {
+            && event.keyCode != KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE && !top.hasFocus()) {
             view.showController()
             if (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER) return true
         }
