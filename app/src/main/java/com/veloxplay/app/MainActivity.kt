@@ -141,7 +141,7 @@ class MainActivity : ComponentActivity() {
                 val media = MEDIA_PATH.containsMatchIn(path)
                 if (origin == null && !media) return null // imagens, fontes e scripts seguem normais
                 if (u.host in SKIP_HOSTS) return null
-                return try { corsFetch(u.toString(), request.requestHeaders, origin) } catch (e: Exception) { null }
+                return try { corsFetch(u.toString(), request.requestHeaders, origin ?: "*") } catch (e: Exception) { null }
             }
 
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
