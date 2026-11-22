@@ -221,7 +221,8 @@ class MainActivity : ComponentActivity() {
             c = URL(url).openConnection() as HttpURLConnection
             c.instanceFollowRedirects = false
             c.connectTimeout = 15000; c.readTimeout = 30000
-            for ((k, v) in reqHeaders) if (!k.equals("Origin", true) && !k.equals("Referer", true) && !k.equals("Host", true) && !k.equals("Accept-Encoding", true) && !k.equals("X-Requested-With", true)) c.setRequestProperty(k, v)
+            c.setRequestProperty("User-Agent", UA.web(this)) // o painel IPTV mostra "VeloxPlay/v..." em vez de navegador
+            for ((k, v) in reqHeaders) if (!k.equals("User-Agent", true) && !k.equals("Origin", true) && !k.equals("Referer", true) && !k.equals("Host", true) && !k.equals("Accept-Encoding", true) && !k.equals("X-Requested-With", true)) c.setRequestProperty(k, v)
             val code = c.responseCode
             if (code in 300..399 && hops < 8) {
                 val loc = c.getHeaderField("Location") ?: break

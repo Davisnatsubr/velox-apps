@@ -352,7 +352,8 @@ class PlayerActivity : ComponentActivity() {
     private fun initPlayer() {
         if (player != null || urls.isEmpty()) return
         val http = DefaultHttpDataSource.Factory()
-            .setUserAgent("Mozilla/5.0 (Linux; Android) VeloxApp/" + BuildConfig.VERSION_NAME)
+            // nome que aparece no painel do servidor IPTV (Sigma, XUI...): ex. "VeloxPlay/v1.0.17-Exo"
+            .setUserAgent(UA.player(this))
             .setAllowCrossProtocolRedirects(true)
             .setConnectTimeoutMs(15000)
             .setReadTimeoutMs(20000)

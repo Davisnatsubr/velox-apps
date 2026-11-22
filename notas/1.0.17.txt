@@ -1,0 +1,3 @@
+Velox Play / Pulso Play 1.0.17
+- O app aparece com o próprio nome no painel do servidor IPTV (ex.: VeloxPlay/v1.0.17-Exo), em vez de navegador.
+Este app é apenas um reprodutor (player): não fornece nem vende conteúdo.
