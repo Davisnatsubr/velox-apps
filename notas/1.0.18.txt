@@ -1,0 +1,5 @@
+Velox Play / Pulso Play 1.0.18
+- Ao vivo: se o servidor recusar o app, ele repete como navegador e passa a abrir direto (mais rápido).
+- Player de filmes e séries também tenta de novo quando o servidor recusa.
+- O login fica gravado no aparelho ao fechar o app.
+Este app é apenas um reprodutor (player): não fornece nem vende conteúdo.

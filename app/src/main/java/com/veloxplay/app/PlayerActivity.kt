@@ -93,6 +93,7 @@ class PlayerActivity : ComponentActivity() {
     private var liveRetries = 0
     private var resizeIdx = 0
     private val handler = Handler(Looper.getMainLooper())
+    private var desktopUa = false
 
     // lista de canais do ao vivo (troca de canal dentro do player)
     private data class Ch(val id: String, val name: String)
@@ -353,7 +354,7 @@ class PlayerActivity : ComponentActivity() {
         if (player != null || urls.isEmpty()) return
         val http = DefaultHttpDataSource.Factory()
             // nome que aparece no painel do servidor IPTV (Sigma, XUI...): ex. "VeloxPlay/v1.0.17-Exo"
-            .setUserAgent(UA.player(this))
+            .setUserAgent(if (desktopUa) UA.DESKTOP else UA.player(this))
             .setAllowCrossProtocolRedirects(true)
             .setConnectTimeoutMs(15000)
             .setReadTimeoutMs(20000)
@@ -392,6 +393,12 @@ class PlayerActivity : ComponentActivity() {
 
     private fun handleError(e: PlaybackException) {
         val p = player ?: return
+        // servidor recusou (4xx): tenta uma vez com a identificação de navegador de computador
+        if (e.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS && !desktopUa) {
+            desktopUa = true
+            if (!live) lastPos = p.currentPosition
+            releasePlayer(); initPlayer(); return
+        }
         // ao vivo atrasado demais: volta para o ponto atual da transmissão
         if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
             p.seekToDefaultPosition(); p.prepare(); return

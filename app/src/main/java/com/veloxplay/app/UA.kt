@@ -11,4 +11,7 @@ object UA {
 
     /** Vídeos do ao vivo tocados na tela do app (passam pelo app). */
     fun web(c: Context) = "${name(c)}/v${BuildConfig.VERSION_NAME}"
+
+    /** Igual ao navegador do computador: usado quando o servidor recusa o nome do app (alguns painéis só liberam navegadores conhecidos). */
+    const val DESKTOP = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 }

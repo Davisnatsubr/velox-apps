@@ -201,6 +201,8 @@ class MainActivity : ComponentActivity() {
         private val SKIP_HOSTS = setOf("cdn.jsdelivr.net", "fonts.googleapis.com", "fonts.gstatic.com", "unpkg.com", "cdnjs.cloudflare.com")
     }
 
+    @Volatile private var preferUa = 0
+
     private fun corsHeaders(origin: String?) = mutableMapOf(
         "Access-Control-Allow-Origin" to (origin ?: "*"),
         "Access-Control-Allow-Credentials" to "true",
@@ -214,6 +216,9 @@ class MainActivity : ComponentActivity() {
         WebResourceResponse("text/plain", "utf-8", 204, "No Content", corsHeaders(origin), ByteArrayInputStream(ByteArray(0)))
 
     private fun corsFetch(start: String, reqHeaders: Map<String, String>, origin: String): WebResourceResponse {
+        // 1º o nome do app; se o servidor recusar (4xx), repete como navegador de computador e lembra disso
+        val uas = listOf(UA.web(this), UA.DESKTOP)
+        var uaIdx = preferUa
         var url = start
         var c: HttpURLConnection
         var hops = 0
@@ -221,15 +226,17 @@ class MainActivity : ComponentActivity() {
             c = URL(url).openConnection() as HttpURLConnection
             c.instanceFollowRedirects = false
             c.connectTimeout = 15000; c.readTimeout = 30000
-            c.setRequestProperty("User-Agent", UA.web(this)) // o painel IPTV mostra "VeloxPlay/v..." em vez de navegador
+            c.setRequestProperty("User-Agent", uas[uaIdx]) // o painel IPTV mostra "VeloxPlay/v..." em vez de navegador
             for ((k, v) in reqHeaders) if (!k.equals("User-Agent", true) && !k.equals("Origin", true) && !k.equals("Referer", true) && !k.equals("Host", true) && !k.equals("Accept-Encoding", true) && !k.equals("X-Requested-With", true)) c.setRequestProperty(k, v)
             val code = c.responseCode
             if (code in 300..399 && hops < 8) {
                 val loc = c.getHeaderField("Location") ?: break
                 url = URL(URL(url), loc).toString(); hops++; c.disconnect(); continue
             }
+            if (code in 400..499 && uaIdx < uas.size - 1) { uaIdx++; url = start; hops = 0; c.disconnect(); continue }
             break
         }
+        if (c.responseCode < 400) preferUa = uaIdx
         val code = c.responseCode
         val ctype = c.contentType ?: "application/octet-stream"
         val mime = ctype.substringBefore(';').trim()
@@ -401,7 +408,11 @@ class MainActivity : ComponentActivity() {
         web.onResume()
         if (BuildConfig.SELF_UPDATE) updater.resumeIfPending()
     }
-    override fun onPause() { web.onPause(); super.onPause() }
+    override fun onPause() {
+        web.onPause()
+        android.webkit.CookieManager.getInstance().flush() // grava o login no aparelho (não some ao fechar o app)
+        super.onPause()
+    }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
