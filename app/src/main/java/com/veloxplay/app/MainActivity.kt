@@ -132,9 +132,15 @@ class MainActivity : ComponentActivity() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                 val u = request.url
                 if (u.host == siteHost || (u.scheme != "http" && u.scheme != "https")) return null
+                if (request.isForMainFrame) return null
                 val origin = request.requestHeaders.entries.firstOrNull { it.key.equals("Origin", true) }?.value
                 if (request.method.equals("OPTIONS", true)) return corsPreflight(origin)
-                if (origin == null || !request.method.equals("GET", true)) return null // imagens e páginas seguem normais
+                if (!request.method.equals("GET", true)) return null
+                // vídeo ao vivo/filme do servidor IPTV: pelo endereço (o Android nem sempre informa o "Origin")
+                val path = (u.path ?: "").lowercase()
+                val media = MEDIA_PATH.containsMatchIn(path)
+                if (origin == null && !media) return null // imagens, fontes e scripts seguem normais
+                if (u.host in SKIP_HOSTS) return null
                 return try { corsFetch(u.toString(), request.requestHeaders, origin) } catch (e: Exception) { null }
             }
 
@@ -190,6 +196,11 @@ class MainActivity : ComponentActivity() {
         web.requestFocus()
     }
 
+    companion object {
+        private val MEDIA_PATH = Regex("(^/(live|movie|series|timeshift|hls|play)/)|\\.(m3u8|m3u|ts|m4s|aac|key|mp4|mkv)$")
+        private val SKIP_HOSTS = setOf("cdn.jsdelivr.net", "fonts.googleapis.com", "fonts.gstatic.com", "unpkg.com", "cdnjs.cloudflare.com")
+    }
+
     private fun corsHeaders(origin: String?) = mutableMapOf(
         "Access-Control-Allow-Origin" to (origin ?: "*"),
         "Access-Control-Allow-Credentials" to "true",
@@ -210,7 +221,7 @@ class MainActivity : ComponentActivity() {
             c = URL(url).openConnection() as HttpURLConnection
             c.instanceFollowRedirects = false
             c.connectTimeout = 15000; c.readTimeout = 30000
-            for ((k, v) in reqHeaders) if (!k.equals("Origin", true) && !k.equals("Referer", true) && !k.equals("Host", true) && !k.equals("Accept-Encoding", true)) c.setRequestProperty(k, v)
+            for ((k, v) in reqHeaders) if (!k.equals("Origin", true) && !k.equals("Referer", true) && !k.equals("Host", true) && !k.equals("Accept-Encoding", true) && !k.equals("X-Requested-With", true)) c.setRequestProperty(k, v)
             val code = c.responseCode
             if (code in 300..399 && hops < 8) {
                 val loc = c.getHeaderField("Location") ?: break

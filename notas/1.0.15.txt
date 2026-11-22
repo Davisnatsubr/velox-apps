@@ -1,0 +1,3 @@
+Velox Play / Pulso Play 1.0.15
+- Canais ao vivo: o app libera todos os arquivos de vídeo para o player (HLS e TS).
+Este app é apenas um reprodutor (player): não fornece nem vende conteúdo.
